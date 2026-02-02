@@ -31,11 +31,11 @@ Last updated: 2026-02-03
 - [x] Tests: mocked Discord interaction flow
 
 ### M4 - Self-iterating skill updates
-- [ ] Add skills/ directory with versioned modules
-- [ ] Add Reload_Skill tool
-- [ ] Add Coding_Agent patch workflow for skills
+- [x] Add skills/ directory with versioned modules
+- [x] Add Reload_Skill tool
+- [x] Add Coding_Agent patch workflow for skills
 - [ ] Add sandboxed execution option (Docker/E2B hook)
-- [ ] Tests: skill edit + reload + re-run
+- [x] Tests: skill edit + reload + re-run
 
 ### M5 - Hardening and docs
 - [ ] Add configuration guide
@@ -48,3 +48,5 @@ Last updated: 2026-02-03
 - 2026-02-03: Added checkpointed interrupt + resume flow with tests.
 - 2026-02-03: Added Gateway API scaffolding and Discord stub.
 - 2026-02-03: Implemented Discord bot command parsing and runner.
+- 2026-02-03: Added skills registry and reload tests.
+- 2026-02-03: Added skill editor workflow for self-repair.

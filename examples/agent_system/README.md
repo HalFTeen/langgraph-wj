@@ -22,3 +22,5 @@ Tests
 - `python -m pytest examples/agent_system/tests/test_core_loop.py`
 - `python -m pytest examples/agent_system/tests/test_interrupt_flow.py`
 - `python -m pytest examples/agent_system/tests/test_discord_bot.py`
+- `python -m pytest examples/agent_system/tests/test_skill_reload.py`
+- `python -m pytest examples/agent_system/tests/test_skill_edit_repair.py`

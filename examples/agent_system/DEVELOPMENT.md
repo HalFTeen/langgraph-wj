@@ -65,6 +65,13 @@ class AgentState(TypedDict):
 - Coding_Agent modifies skills modules when errors recur.
 - Reload_Skill imports updated module and refreshes the tool registry.
 
+## Self-iterating skills (current)
+
+- skills/ package includes arithmetic skill and registry/reloader.
+- SkillRegistry loads modules by import path and supports reload.
+- SkillReloader exposes a minimal reload result structure.
+- SkillEditor can overwrite skill source with templates and trigger reload.
+
 ## Testing strategy
 
 - Unit tests for loop edges and termination.

@@ -6,6 +6,11 @@ from typing import Annotated, Literal, TypedDict
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph, add_messages
 
+from examples.agent_system.skills.registry import SkillRegistry
+from examples.agent_system.skills.reloader import SkillReloader
+from examples.agent_system.skills.editor import SkillEditor
+from examples.agent_system.skills.templates import arithmetic_template
+
 
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
@@ -16,6 +21,8 @@ class AgentState(TypedDict):
     pending_action: str
     approval_status: Literal["pending", "approved", "denied"]
     last_execution: str
+    skill_result: int
+    skill_repair_attempted: bool
 
 
 def _render_bad_code() -> str:
@@ -104,18 +111,47 @@ def approver_node(state: AgentState) -> dict:
 def executor_node(state: AgentState) -> dict:
     if state.get("approval_status") != "approved":
         raise RuntimeError("Execution denied or not approved.")
-    return {
-        "last_execution": "Executed app.py:add()",
-        "messages": [
-            AIMessage(
-                content="Executor: execution completed.",
-                additional_kwargs={
-                    "role": "executor",
-                    "result": "success",
-                },
-            )
-        ],
-    }
+    registry = SkillRegistry()
+    registry.register("arithmetic", "examples.agent_system.skills.arithmetic")
+    skill = registry.get("arithmetic").module
+    try:
+        result = skill.add(2, 3)
+        return {
+            "last_execution": "Executed app.py:add()",
+            "skill_result": result,
+            "messages": [
+                AIMessage(
+                    content="Executor: execution completed.",
+                    additional_kwargs={
+                        "role": "executor",
+                        "result": "success",
+                    },
+                )
+            ],
+        }
+    except Exception as exc:  # noqa: BLE001
+        if state.get("skill_repair_attempted"):
+            raise
+        editor = SkillEditor(registry)
+        editor.update_source("arithmetic", arithmetic_template("add"))
+        reloader = SkillReloader(registry)
+        reloader.reload("arithmetic")
+        skill = registry.get("arithmetic").module
+        result = skill.add(2, 3)
+        return {
+            "last_execution": f"Executed app.py:add() after repair: {exc}",
+            "skill_result": result,
+            "skill_repair_attempted": True,
+            "messages": [
+                AIMessage(
+                    content="Executor: repaired skill and executed.",
+                    additional_kwargs={
+                        "role": "executor",
+                        "result": "repaired",
+                    },
+                )
+            ],
+        }
 
 
 def _route_from_reviewer(state: AgentState) -> str:
@@ -162,6 +198,8 @@ def build_initial_state() -> AgentState:
         "pending_action": "",
         "approval_status": "pending",
         "last_execution": "",
+        "skill_result": 0,
+        "skill_repair_attempted": False,
     }
 
 
