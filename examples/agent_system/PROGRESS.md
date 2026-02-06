@@ -59,7 +59,7 @@ Last updated: 2026-02-06 (synced)
 - [x] Create role registry (roles/registry.py)
 - [x] Refactor Graph to use Role classes (build_graph accepts registry)
 - [x] Integrate TesterRole into graph flow (coder -> reviewer -> tester -> approver)
-- [ ] Add inter-agent messaging protocol
+- [x] Add inter-agent messaging protocol (AgentMessage, MessageQueue, MessageType, MessagePriority)
 - [ ] Refactor Graph for full dynamic role composition (orchestrator-driven)
 - [ ] Tests: multi-agent coordination
 
@@ -78,3 +78,4 @@ Last updated: 2026-02-06 (synced)
 - 2026-02-06: Added Agent role base class and refactored Coder/Reviewer as role classes.
 - 2026-02-06: Implemented Tester, Orchestrator roles and RoleRegistry with full test coverage.
 - 2026-02-06: Refactored build_graph() to use Role classes and RoleRegistry; integrated TesterRole into flow.
+- 2026-02-06: Added inter-agent messaging protocol with AgentMessage, MessageQueue, priority system.
