@@ -45,7 +45,7 @@ Last updated: 2026-02-06
 ### M6 - LLM Integration (NEW)
 - [x] Create LLM Provider abstraction layer (llm/provider.py)
 - [x] Add LLM configuration management (config.py)
-- [ ] Create Prompt template system (prompts/)
+- [x] Create Prompt template system (prompts/)
 - [ ] Refactor coder_node to use LLM
 - [ ] Refactor reviewer_node to use LLM
 - [ ] Tests: LLM-powered code generation and review
@@ -71,3 +71,4 @@ Last updated: 2026-02-06
 - 2026-02-03: Added skill editor workflow for self-repair.
 - 2026-02-06: Added LLM Provider abstraction layer using langchain-core ChatModel interface.
 - 2026-02-06: Added centralized configuration management with environment variable support.
+- 2026-02-06: Added prompt template system for Coder, Reviewer, Tester, Orchestrator roles.
