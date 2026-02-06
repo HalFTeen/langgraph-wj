@@ -51,9 +51,9 @@ Last updated: 2026-02-06
 - [x] Tests: LLM-powered code generation and review
 
 ### M7 - Multi-Agent Collaboration (NEW)
-- [ ] Design Agent role base class (roles/base.py)
-- [ ] Refactor Coder as standalone role class
-- [ ] Refactor Reviewer as standalone role class
+- [x] Design Agent role base class (roles/base.py)
+- [x] Refactor Coder as standalone role class (roles/coder.py)
+- [x] Refactor Reviewer as standalone role class (roles/reviewer.py)
 - [ ] Implement Tester role
 - [ ] Implement Orchestrator role
 - [ ] Create role registry
@@ -73,3 +73,4 @@ Last updated: 2026-02-06
 - 2026-02-06: Added centralized configuration management with environment variable support.
 - 2026-02-06: Added prompt template system for Coder, Reviewer, Tester, Orchestrator roles.
 - 2026-02-06: Refactored coder_node and reviewer_node to support LLM with fallback mode.
+- 2026-02-06: Added Agent role base class and refactored Coder/Reviewer as role classes.
