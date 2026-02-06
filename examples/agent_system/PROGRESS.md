@@ -34,7 +34,7 @@ Last updated: 2026-02-06 (synced)
 - [x] Add skills/ directory with versioned modules
 - [x] Add Reload_Skill tool
 - [x] Add Coding_Agent patch workflow for skills
-- [ ] Add sandboxed execution option (Docker/E2B hook)
+- [x] Add sandboxed execution option (Docker/LocalExecutor)
 - [x] Tests: skill edit + reload + re-run
 
 ### M5 - Hardening and docs
@@ -80,3 +80,4 @@ Last updated: 2026-02-06 (synced)
 - 2026-02-06: Refactored build_graph() to use Role classes and RoleRegistry; integrated TesterRole into flow.
 - 2026-02-06: Added inter-agent messaging protocol with AgentMessage, MessageQueue, priority system.
 - 2026-02-06: Added dynamic graph composition with OrchestratorRouter for plan-driven execution.
+- 2026-02-06: Added sandbox execution module with LocalExecutor and DockerExecutor for isolated code execution.
