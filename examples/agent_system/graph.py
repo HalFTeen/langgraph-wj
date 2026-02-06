@@ -32,6 +32,9 @@ class AgentState(TypedDict):
     # Tester-related state
     test_code: str
     test_status: Literal["pending", "generated", "passed", "failed", "skipped"]
+    # Orchestrator-related state
+    execution_plan: list[dict]
+    orchestrator_status: Literal["planning", "executing", "completed"]
 
 
 # Default node implementations (fallback mode for backward compatibility)
@@ -205,6 +208,8 @@ def build_initial_state() -> AgentState:
         "skill_repair_attempted": False,
         "test_code": "",
         "test_status": "pending",
+        "execution_plan": [],
+        "orchestrator_status": "planning",
     }
 
 

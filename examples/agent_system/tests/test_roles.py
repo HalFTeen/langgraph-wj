@@ -332,7 +332,8 @@ class TestOrchestratorRole:
         plan = result.state_updates["execution_plan"]
         assert len(plan) == 3
         assert plan[0]["agent"] == "coder"
-        assert result.state_updates["orchestrator_status"] == "planning"
+        # Status should be "executing" so router can dispatch to first agent
+        assert result.state_updates["orchestrator_status"] == "executing"
 
     def test_fallback_updates_existing_plan(self) -> None:
         orchestrator = OrchestratorRole()

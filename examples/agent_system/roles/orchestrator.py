@@ -111,7 +111,8 @@ class OrchestratorRole(AgentRole):
                 {"agent": "reviewer", "task": "Review the implementation", "status": "pending"},
                 {"agent": "tester", "task": "Write and run tests", "status": "pending"},
             ]
-            status: Literal["planning", "executing", "completed"] = "planning"
+            # Set to executing so router can dispatch to first agent
+            status: Literal["planning", "executing", "completed"] = "executing"
             message_content = "Orchestrator: created execution plan."
         else:
             # Update plan status based on current state

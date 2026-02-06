@@ -60,7 +60,7 @@ Last updated: 2026-02-06 (synced)
 - [x] Refactor Graph to use Role classes (build_graph accepts registry)
 - [x] Integrate TesterRole into graph flow (coder -> reviewer -> tester -> approver)
 - [x] Add inter-agent messaging protocol (AgentMessage, MessageQueue, MessageType, MessagePriority)
-- [ ] Refactor Graph for full dynamic role composition (orchestrator-driven)
+- [x] Add dynamic graph with OrchestratorRouter (build_orchestrated_graph)
 - [ ] Tests: multi-agent coordination
 
 ## Atomic step log
@@ -79,3 +79,4 @@ Last updated: 2026-02-06 (synced)
 - 2026-02-06: Implemented Tester, Orchestrator roles and RoleRegistry with full test coverage.
 - 2026-02-06: Refactored build_graph() to use Role classes and RoleRegistry; integrated TesterRole into flow.
 - 2026-02-06: Added inter-agent messaging protocol with AgentMessage, MessageQueue, priority system.
+- 2026-02-06: Added dynamic graph composition with OrchestratorRouter for plan-driven execution.
