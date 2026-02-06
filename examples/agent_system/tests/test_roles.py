@@ -8,7 +8,10 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from examples.agent_system.roles.base import AgentRole, PassthroughRole, RoleResult
 from examples.agent_system.roles.coder import CoderRole
+from examples.agent_system.roles.orchestrator import OrchestratorRole
+from examples.agent_system.roles.registry import RoleRegistry, create_default_registry
 from examples.agent_system.roles.reviewer import ReviewerRole
+from examples.agent_system.roles.tester import TesterRole
 
 
 class TestRoleResult:
@@ -261,3 +264,191 @@ class TestAgentRoleRepr:
         repr_str = repr(coder)
 
         assert "MockChatModel" in repr_str
+
+
+class TestTesterRole:
+    """Tests for TesterRole."""
+
+    def test_init_without_llm(self) -> None:
+        tester = TesterRole()
+        assert tester.name == "tester"
+        assert tester.llm is None
+
+    def test_fallback_generates_tests_for_add(self) -> None:
+        tester = TesterRole()
+        state = {
+            "code_files": {"app.py": "def add(a, b): return a + b"},
+            "messages": [],
+        }
+
+        result = tester.process(state)
+
+        assert result.state_updates["test_status"] == "generated"
+        assert "test_add" in result.state_updates["test_code"]
+        assert "pytest" in result.state_updates["test_code"]
+
+    def test_fallback_skips_when_no_code(self) -> None:
+        tester = TesterRole()
+        state = {"code_files": {"app.py": "# empty"}, "messages": []}
+
+        result = tester.process(state)
+
+        assert result.state_updates["test_status"] == "skipped"
+
+    def test_llm_mode_calls_llm(self) -> None:
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value.content = "```python\ndef test_foo(): pass\n```"
+
+        tester = TesterRole(llm=mock_llm)
+        state = {
+            "code_files": {"app.py": "def foo(): pass"},
+            "messages": [HumanMessage(content="Write foo")],
+        }
+
+        result = tester.process(state)
+
+        mock_llm.invoke.assert_called_once()
+        assert "test_foo" in result.state_updates["test_code"]
+
+
+class TestOrchestratorRole:
+    """Tests for OrchestratorRole."""
+
+    def test_init_without_llm(self) -> None:
+        orchestrator = OrchestratorRole()
+        assert orchestrator.name == "orchestrator"
+        assert orchestrator.llm is None
+        assert "coder" in orchestrator.available_agents
+
+    def test_fallback_creates_plan(self) -> None:
+        orchestrator = OrchestratorRole()
+        state = {
+            "messages": [HumanMessage(content="Build a calculator")],
+            "execution_plan": [],
+        }
+
+        result = orchestrator.process(state)
+
+        plan = result.state_updates["execution_plan"]
+        assert len(plan) == 3
+        assert plan[0]["agent"] == "coder"
+        assert result.state_updates["orchestrator_status"] == "planning"
+
+    def test_fallback_updates_existing_plan(self) -> None:
+        orchestrator = OrchestratorRole()
+        state = {
+            "messages": [HumanMessage(content="Task")],
+            "execution_plan": [
+                {"agent": "coder", "task": "Code", "status": "pending"},
+                {"agent": "reviewer", "task": "Review", "status": "pending"},
+            ],
+            "iteration_count": 1,
+            "review_status": "",
+        }
+
+        result = orchestrator.process(state)
+
+        plan = result.state_updates["execution_plan"]
+        assert plan[0]["status"] == "completed"
+        assert result.state_updates["orchestrator_status"] == "executing"
+
+    def test_get_next_agent(self) -> None:
+        orchestrator = OrchestratorRole()
+        state = {
+            "execution_plan": [
+                {"agent": "coder", "task": "Code", "status": "completed"},
+                {"agent": "reviewer", "task": "Review", "status": "pending"},
+            ]
+        }
+
+        next_agent = orchestrator.get_next_agent(state)
+        assert next_agent == "reviewer"
+
+    def test_get_next_agent_returns_none_when_complete(self) -> None:
+        orchestrator = OrchestratorRole()
+        state = {
+            "execution_plan": [
+                {"agent": "coder", "task": "Code", "status": "completed"},
+                {"agent": "reviewer", "task": "Review", "status": "completed"},
+            ]
+        }
+
+        next_agent = orchestrator.get_next_agent(state)
+        assert next_agent is None
+
+
+class TestRoleRegistry:
+    """Tests for RoleRegistry."""
+
+    def test_register_and_get(self) -> None:
+        registry = RoleRegistry()
+        coder = CoderRole()
+        registry.register("coder", coder)
+
+        result = registry.get("coder")
+        assert result is coder
+
+    def test_get_raises_for_unknown(self) -> None:
+        registry = RoleRegistry()
+
+        try:
+            registry.get("unknown")
+            assert False, "Should raise KeyError"
+        except KeyError:
+            pass
+
+    def test_register_factory(self) -> None:
+        registry = RoleRegistry()
+        registry.register_factory("coder", lambda: CoderRole())
+
+        result = registry.get("coder")
+        assert isinstance(result, CoderRole)
+
+    def test_get_or_create_uses_default(self) -> None:
+        registry = RoleRegistry()
+
+        result = registry.get_or_create("coder")
+        assert isinstance(result, CoderRole)
+
+    def test_has(self) -> None:
+        registry = RoleRegistry()
+        assert registry.has("coder")  # default class
+        assert not registry.has("unknown")
+
+        registry.register("custom", PassthroughRole())
+        assert registry.has("custom")
+
+    def test_list_available(self) -> None:
+        registry = RoleRegistry()
+        available = registry.list_available()
+
+        assert "coder" in available
+        assert "reviewer" in available
+        assert "tester" in available
+        assert "orchestrator" in available
+
+    def test_clear(self) -> None:
+        registry = RoleRegistry()
+        registry.register("test", PassthroughRole())
+        registry.clear()
+
+        assert registry.list_roles() == []
+
+
+class TestCreateDefaultRegistry:
+    """Tests for create_default_registry."""
+
+    def test_creates_all_roles(self) -> None:
+        registry = create_default_registry()
+
+        assert "coder" in registry.list_roles()
+        assert "reviewer" in registry.list_roles()
+        assert "tester" in registry.list_roles()
+        assert "orchestrator" in registry.list_roles()
+
+    def test_passes_llm_to_roles(self) -> None:
+        mock_llm = MagicMock()
+        registry = create_default_registry(llm=mock_llm)
+
+        coder = registry.get("coder")
+        assert coder.llm is mock_llm

@@ -1,7 +1,7 @@
 # Agent System Progress
 
 Status: in development (LLM integration + Multi-Agent)
-Last updated: 2026-02-06
+Last updated: 2026-02-06 (synced)
 
 ## Milestones
 
@@ -54,11 +54,13 @@ Last updated: 2026-02-06
 - [x] Design Agent role base class (roles/base.py)
 - [x] Refactor Coder as standalone role class (roles/coder.py)
 - [x] Refactor Reviewer as standalone role class (roles/reviewer.py)
-- [ ] Implement Tester role
-- [ ] Implement Orchestrator role
-- [ ] Create role registry
-- [ ] Refactor Graph to support dynamic role composition
+- [x] Implement Tester role (roles/tester.py)
+- [x] Implement Orchestrator role (roles/orchestrator.py)
+- [x] Create role registry (roles/registry.py)
+- [x] Refactor Graph to use Role classes (build_graph accepts registry)
+- [x] Integrate TesterRole into graph flow (coder -> reviewer -> tester -> approver)
 - [ ] Add inter-agent messaging protocol
+- [ ] Refactor Graph for full dynamic role composition (orchestrator-driven)
 - [ ] Tests: multi-agent coordination
 
 ## Atomic step log
@@ -74,3 +76,5 @@ Last updated: 2026-02-06
 - 2026-02-06: Added prompt template system for Coder, Reviewer, Tester, Orchestrator roles.
 - 2026-02-06: Refactored coder_node and reviewer_node to support LLM with fallback mode.
 - 2026-02-06: Added Agent role base class and refactored Coder/Reviewer as role classes.
+- 2026-02-06: Implemented Tester, Orchestrator roles and RoleRegistry with full test coverage.
+- 2026-02-06: Refactored build_graph() to use Role classes and RoleRegistry; integrated TesterRole into flow.
