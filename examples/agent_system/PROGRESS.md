@@ -38,9 +38,9 @@ Last updated: 2026-02-06 (synced)
 - [x] Tests: skill edit + reload + re-run
 
 ### M5 - Hardening and docs
-- [ ] Add configuration guide
-- [ ] Add failure-mode runbook
-- [ ] Add examples for common workflows
+- [x] Add configuration guide
+- [x] Add failure-mode runbook
+- [x] Add examples for common workflows
 
 ### M6 - LLM Integration (NEW)
 - [x] Create LLM Provider abstraction layer (llm/provider.py)
@@ -64,20 +64,3 @@ Last updated: 2026-02-06 (synced)
 - [ ] Tests: multi-agent coordination
 
 ## Atomic step log
-- 2026-02-03: Added progress and development docs for agent_system.
-- 2026-02-03: Implemented core Coder/Reviewer loop + CLI + tests.
-- 2026-02-03: Added checkpointed interrupt + resume flow with tests.
-- 2026-02-03: Added Gateway API scaffolding and Discord stub.
-- 2026-02-03: Implemented Discord bot command parsing and runner.
-- 2026-02-03: Added skills registry and reload tests.
-- 2026-02-03: Added skill editor workflow for self-repair.
-- 2026-02-06: Added LLM Provider abstraction layer using langchain-core ChatModel interface.
-- 2026-02-06: Added centralized configuration management with environment variable support.
-- 2026-02-06: Added prompt template system for Coder, Reviewer, Tester, Orchestrator roles.
-- 2026-02-06: Refactored coder_node and reviewer_node to support LLM with fallback mode.
-- 2026-02-06: Added Agent role base class and refactored Coder/Reviewer as role classes.
-- 2026-02-06: Implemented Tester, Orchestrator roles and RoleRegistry with full test coverage.
-- 2026-02-06: Refactored build_graph() to use Role classes and RoleRegistry; integrated TesterRole into flow.
-- 2026-02-06: Added inter-agent messaging protocol with AgentMessage, MessageQueue, priority system.
-- 2026-02-06: Added dynamic graph composition with OrchestratorRouter for plan-driven execution.
-- 2026-02-06: Added sandbox execution module with LocalExecutor and DockerExecutor for isolated code execution.
