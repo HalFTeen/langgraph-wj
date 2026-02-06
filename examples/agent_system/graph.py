@@ -3,9 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Literal, TypedDict
 
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph, add_messages
 
+from examples.agent_system.nodes import create_coder_node, create_reviewer_node
 from examples.agent_system.skills.registry import SkillRegistry
 from examples.agent_system.skills.reloader import SkillReloader
 from examples.agent_system.skills.editor import SkillEditor
@@ -25,70 +27,9 @@ class AgentState(TypedDict):
     skill_repair_attempted: bool
 
 
-def _render_bad_code() -> str:
-    return """def add(a, b):
-    # TODO: fix math
-    return a - b
-"""
-
-
-def _render_good_code() -> str:
-    return """def add(a, b):
-    return a + b
-"""
-
-
-def coder_node(state: AgentState) -> dict:
-    iteration = state.get("iteration_count", 0)
-    code_files = dict(state.get("code_files", {}))
-    if iteration == 0:
-        code_files["app.py"] = _render_bad_code()
-        message = AIMessage(
-            content="Coder: wrote initial add() implementation.",
-            additional_kwargs={
-                "role": "coder",
-                "summary": "initial implementation",
-            },
-        )
-    else:
-        code_files["app.py"] = _render_good_code()
-        message = AIMessage(
-            content="Coder: fixed add() implementation.",
-            additional_kwargs={
-                "role": "coder",
-                "summary": "fixed math logic",
-            },
-        )
-
-    return {
-        "code_files": code_files,
-        "iteration_count": iteration + 1,
-        "messages": [message],
-    }
-
-
-def reviewer_node(state: AgentState) -> dict:
-    code = state.get("code_files", {}).get("app.py", "")
-    if "return a + b" in code and "TODO" not in code:
-        review_status: Literal["approved", "changes"] = "approved"
-        feedback = "Reviewer: approved."
-    else:
-        review_status = "changes"
-        feedback = "Reviewer: add() is incorrect; please fix math."
-
-    review_message = AIMessage(
-        content=feedback,
-        additional_kwargs={
-            "role": "reviewer",
-            "status": review_status,
-        },
-    )
-
-    return {
-        "review_status": review_status,
-        "reviewer_feedback": feedback,
-        "messages": [review_message],
-    }
+# Default node implementations (fallback mode for backward compatibility)
+coder_node = create_coder_node()
+reviewer_node = create_reviewer_node()
 
 
 def approver_node(state: AgentState) -> dict:
@@ -164,12 +105,35 @@ def _route_after_review(state: AgentState) -> str:
 
 def build_graph(
     *,
+    llm: BaseChatModel | None = None,
     interrupt_before: list[str] | None = None,
     checkpointer=None,
 ) -> StateGraph:
+    """Build the agent graph.
+
+    Args:
+        llm: Optional LLM instance for code generation and review.
+            If None, uses fallback deterministic logic (for testing).
+        interrupt_before: Nodes to interrupt before (for human-in-the-loop).
+        checkpointer: Checkpoint saver for state persistence.
+
+    Returns:
+        Compiled StateGraph ready for execution.
+
+    Example:
+        >>> from examples.agent_system.llm import get_llm
+        >>> # With LLM
+        >>> graph = build_graph(llm=get_llm())
+        >>> # Without LLM (fallback mode)
+        >>> graph = build_graph()
+    """
+    # Create nodes with optional LLM
+    coder = create_coder_node(llm=llm)
+    reviewer = create_reviewer_node(llm=llm)
+
     graph = StateGraph(AgentState)
-    graph.add_node("coder", coder_node)
-    graph.add_node("reviewer", reviewer_node)
+    graph.add_node("coder", coder)
+    graph.add_node("reviewer", reviewer)
     graph.add_node("approver", approver_node)
     graph.add_node("executor", executor_node)
     graph.add_edge(START, "coder")
@@ -211,9 +175,26 @@ class CheckpointedRun:
 
 
 def build_checkpointed_graph(
-    checkpointer, *, interrupt_before: list[str]
+    checkpointer,
+    *,
+    interrupt_before: list[str],
+    llm: BaseChatModel | None = None,
 ) -> CheckpointedRun:
-    graph = build_graph(interrupt_before=interrupt_before, checkpointer=checkpointer)
+    """Build a checkpointed graph for human-in-the-loop workflows.
+
+    Args:
+        checkpointer: Checkpoint saver for state persistence.
+        interrupt_before: Nodes to interrupt before.
+        llm: Optional LLM instance for code generation and review.
+
+    Returns:
+        CheckpointedRun with graph, thread_id, and config.
+    """
+    graph = build_graph(
+        llm=llm,
+        interrupt_before=interrupt_before,
+        checkpointer=checkpointer,
+    )
     thread_id = "agent-system"
     config = {"configurable": {"thread_id": thread_id}}
     return CheckpointedRun(graph=graph, thread_id=thread_id, config=config)

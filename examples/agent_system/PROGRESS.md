@@ -46,9 +46,9 @@ Last updated: 2026-02-06
 - [x] Create LLM Provider abstraction layer (llm/provider.py)
 - [x] Add LLM configuration management (config.py)
 - [x] Create Prompt template system (prompts/)
-- [ ] Refactor coder_node to use LLM
-- [ ] Refactor reviewer_node to use LLM
-- [ ] Tests: LLM-powered code generation and review
+- [x] Refactor coder_node to use LLM (with fallback mode)
+- [x] Refactor reviewer_node to use LLM (with fallback mode)
+- [x] Tests: LLM-powered code generation and review
 
 ### M7 - Multi-Agent Collaboration (NEW)
 - [ ] Design Agent role base class (roles/base.py)
@@ -72,3 +72,4 @@ Last updated: 2026-02-06
 - 2026-02-06: Added LLM Provider abstraction layer using langchain-core ChatModel interface.
 - 2026-02-06: Added centralized configuration management with environment variable support.
 - 2026-02-06: Added prompt template system for Coder, Reviewer, Tester, Orchestrator roles.
+- 2026-02-06: Refactored coder_node and reviewer_node to support LLM with fallback mode.
