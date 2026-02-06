@@ -1,7 +1,7 @@
 # Agent System Progress
 
-Status: planning complete
-Last updated: 2026-02-03
+Status: in development (LLM integration + Multi-Agent)
+Last updated: 2026-02-06
 
 ## Milestones
 
@@ -42,6 +42,25 @@ Last updated: 2026-02-03
 - [ ] Add failure-mode runbook
 - [ ] Add examples for common workflows
 
+### M6 - LLM Integration (NEW)
+- [x] Create LLM Provider abstraction layer (llm/provider.py)
+- [ ] Add LLM configuration management (config.py)
+- [ ] Create Prompt template system (prompts/)
+- [ ] Refactor coder_node to use LLM
+- [ ] Refactor reviewer_node to use LLM
+- [ ] Tests: LLM-powered code generation and review
+
+### M7 - Multi-Agent Collaboration (NEW)
+- [ ] Design Agent role base class (roles/base.py)
+- [ ] Refactor Coder as standalone role class
+- [ ] Refactor Reviewer as standalone role class
+- [ ] Implement Tester role
+- [ ] Implement Orchestrator role
+- [ ] Create role registry
+- [ ] Refactor Graph to support dynamic role composition
+- [ ] Add inter-agent messaging protocol
+- [ ] Tests: multi-agent coordination
+
 ## Atomic step log
 - 2026-02-03: Added progress and development docs for agent_system.
 - 2026-02-03: Implemented core Coder/Reviewer loop + CLI + tests.
@@ -50,3 +69,4 @@ Last updated: 2026-02-03
 - 2026-02-03: Implemented Discord bot command parsing and runner.
 - 2026-02-03: Added skills registry and reload tests.
 - 2026-02-03: Added skill editor workflow for self-repair.
+- 2026-02-06: Added LLM Provider abstraction layer using langchain-core ChatModel interface.
