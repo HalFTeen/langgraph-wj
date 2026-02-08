@@ -34,12 +34,18 @@ class LLMProvider(str, Enum):
 
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
+    ZHIPU = "zhipu"
+    MINIMAX = "minimax"
+    QWEN = "qwen"
 
 
 # Default models for each provider
 DEFAULT_MODELS: dict[LLMProvider, str] = {
     LLMProvider.OPENAI: "gpt-4o-mini",
     LLMProvider.ANTHROPIC: "claude-3-5-sonnet-20241022",
+    LLMProvider.ZHIPU: "glm-4-plus",
+    LLMProvider.MINIMAX: "abab6.5s-chat",
+    LLMProvider.QWEN: "qwen-turbo",
 }
 
 
@@ -81,9 +87,87 @@ def _create_anthropic_llm(model: str, **kwargs) -> BaseChatModel:
     )
 
 
+def _create_zhipu_llm(model: str, **kwargs) -> BaseChatModel:
+    """Create a ZhipuAI (ChatGLM) ChatModel instance."""
+    try:
+        from langchain_community.chat_models import ChatZhipuAI
+    except ImportError:
+        raise ValueError(
+            "ZhipuAI integration not installed. Install with: pip install langchain-community zhipuai"
+        )
+
+    api_key = kwargs.pop("api_key", None) or os.getenv("ZHIPU_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "ZhipuAI API key required. Set ZHIPU_API_KEY environment variable "
+            "or pass api_key parameter."
+        )
+
+    return ChatZhipuAI(
+        model=model,
+        api_key=api_key,
+        temperature=kwargs.pop("temperature", 0.0),
+        **kwargs,
+    )
+
+
+def _create_minimax_llm(model: str, **kwargs) -> BaseChatModel:
+    """Create a Minimax ChatModel instance."""
+    try:
+        from langchain_community.chat_models import ChatMinimax
+    except ImportError:
+        raise ValueError(
+            "Minimax integration not installed. Install with: pip install langchain-community"
+        )
+
+    api_key = kwargs.pop("api_key", None) or os.getenv("MINIMAX_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "Minimax API key required. Set MINIMAX_API_KEY environment variable "
+            "or pass api_key parameter."
+        )
+
+    base_url = kwargs.pop("base_url", None) or os.getenv("MINIMAX_BASE_URL")
+
+    return ChatMinimax(
+        model=model,
+        api_key=api_key,
+        base_url=base_url,
+        temperature=kwargs.pop("temperature", 0.0),
+        **kwargs,
+    )
+
+
+def _create_qwen_llm(model: str, **kwargs) -> BaseChatModel:
+    """Create a Qwen (DashScope) ChatModel instance."""
+    try:
+        from langchain_community.chat_models import ChatQwen
+    except ImportError:
+        raise ValueError(
+            "Qwen (DashScope) integration not installed. Install with: pip install langchain-community"
+        )
+
+    api_key = kwargs.pop("api_key", None) or os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "Qwen (DashScope) API key required. Set DASHSCOPE_API_KEY environment variable "
+            "or pass api_key parameter."
+        )
+
+    return ChatQwen(
+        model=model,
+        api_key=api_key,
+        temperature=kwargs.pop("temperature", 0.0),
+        **kwargs,
+    )
+
+
 _PROVIDER_FACTORIES = {
     LLMProvider.OPENAI: _create_openai_llm,
     LLMProvider.ANTHROPIC: _create_anthropic_llm,
+    LLMProvider.ZHIPU: _create_zhipu_llm,
+    LLMProvider.MINIMAX: _create_minimax_llm,
+    LLMProvider.QWEN: _create_qwen_llm,
 }
 
 

@@ -18,11 +18,15 @@ Usage:
 
 Environment Variables:
     LLM Configuration:
-        AGENT_LLM_PROVIDER: LLM provider ("openai", "anthropic"). Default: "openai"
+        AGENT_LLM_PROVIDER: LLM provider ("openai", "anthropic", "zhipu", "minimax", "qwen"). Default: "openai"
         AGENT_LLM_MODEL: Model name. Default: provider's default model
         AGENT_LLM_TEMPERATURE: Temperature for generation. Default: 0.0
         OPENAI_API_KEY: OpenAI API key (required if using OpenAI)
         ANTHROPIC_API_KEY: Anthropic API key (required if using Anthropic)
+        ZHIPU_API_KEY: ZhipuAI API key (required if using zhipu)
+        MINIMAX_API_KEY: Minimax API key (required if using minimax)
+        MINIMAX_BASE_URL: Minimax API base URL (optional)
+        DASHSCOPE_API_KEY: Alibaba DashScope API key (required if using qwen)
 
     Agent Configuration:
         AGENT_MAX_ITERATIONS: Maximum loop iterations. Default: 10

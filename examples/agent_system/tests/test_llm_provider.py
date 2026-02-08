@@ -23,6 +23,9 @@ class TestLLMProvider:
         """Test that provider enum has expected values."""
         assert LLMProvider.OPENAI.value == "openai"
         assert LLMProvider.ANTHROPIC.value == "anthropic"
+        assert LLMProvider.ZHIPU.value == "zhipu"
+        assert LLMProvider.MINIMAX.value == "minimax"
+        assert LLMProvider.QWEN.value == "qwen"
 
     def test_default_models_defined(self) -> None:
         """Test that default models are defined for all providers."""
@@ -167,3 +170,70 @@ class TestLLMCreation:
             os.environ.pop("ANTHROPIC_API_KEY", None)
             with pytest.raises(ValueError, match="Anthropic API key required"):
                 get_llm(provider="anthropic")
+
+    def test_zhipu_missing_api_key(self) -> None:
+        """Test that ZhipuAI raises error without API key."""
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop("ZHIPU_API_KEY", None)
+            with pytest.raises(ValueError, match="ZhipuAI API key required"):
+                get_llm(provider="zhipu")
+
+    def test_minimax_missing_api_key(self) -> None:
+        """Test that Minimax raises error without API key."""
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop("MINIMAX_API_KEY", None)
+            with pytest.raises(ValueError, match="Minimax API key required"):
+                get_llm(provider="minimax")
+
+    def test_qwen_missing_api_key(self) -> None:
+        """Test that Qwen (DashScope) raises error without API key."""
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop("DASHSCOPE_API_KEY", None)
+            with pytest.raises(ValueError, match="Qwen.*API key required"):
+                get_llm(provider="qwen")
+
+
+class TestNewProviderFactories:
+    """Tests for new provider factory functions."""
+
+    def test_get_llm_zhipu(self) -> None:
+        """Test getting ZhipuAI LLM."""
+        mock_factory = MagicMock()
+        mock_llm = MagicMock()
+        mock_factory.return_value = mock_llm
+
+        with patch.dict(
+            _PROVIDER_FACTORIES, {LLMProvider.ZHIPU: mock_factory}
+        ):
+            result = get_llm(provider="zhipu")
+
+        mock_factory.assert_called_once_with(DEFAULT_MODELS[LLMProvider.ZHIPU])
+        assert result == mock_llm
+
+    def test_get_llm_minimax(self) -> None:
+        """Test getting Minimax LLM."""
+        mock_factory = MagicMock()
+        mock_llm = MagicMock()
+        mock_factory.return_value = mock_llm
+
+        with patch.dict(
+            _PROVIDER_FACTORIES, {LLMProvider.MINIMAX: mock_factory}
+        ):
+            result = get_llm(provider="minimax")
+
+        mock_factory.assert_called_once_with(DEFAULT_MODELS[LLMProvider.MINIMAX])
+        assert result == mock_llm
+
+    def test_get_llm_qwen(self) -> None:
+        """Test getting Qwen LLM."""
+        mock_factory = MagicMock()
+        mock_llm = MagicMock()
+        mock_factory.return_value = mock_llm
+
+        with patch.dict(
+            _PROVIDER_FACTORIES, {LLMProvider.QWEN: mock_factory}
+        ):
+            result = get_llm(provider="qwen")
+
+        mock_factory.assert_called_once_with(DEFAULT_MODELS[LLMProvider.QWEN])
+        assert result == mock_llm
