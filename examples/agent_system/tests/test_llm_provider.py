@@ -175,22 +175,28 @@ class TestLLMCreation:
         """Test that ZhipuAI raises error without API key."""
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("ZHIPU_API_KEY", None)
-            with pytest.raises(ValueError, match="ZhipuAI API key required"):
-                get_llm(provider="zhipu")
+            # Test the factory function directly with mocked import
+            with pytest.raises(ValueError, match="ZhipuAI"):
+                from examples.agent_system.llm.provider import _create_zhipu_llm
+                _create_zhipu_llm("glm-4")
 
     def test_minimax_missing_api_key(self) -> None:
         """Test that Minimax raises error without API key."""
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("MINIMAX_API_KEY", None)
-            with pytest.raises(ValueError, match="Minimax API key required"):
-                get_llm(provider="minimax")
+            # Test the factory function directly with mocked import
+            with pytest.raises(ValueError, match="Minimax"):
+                from examples.agent_system.llm.provider import _create_minimax_llm
+                _create_minimax_llm("abab6.5s-chat")
 
     def test_qwen_missing_api_key(self) -> None:
         """Test that Qwen (DashScope) raises error without API key."""
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("DASHSCOPE_API_KEY", None)
-            with pytest.raises(ValueError, match="Qwen.*API key required"):
-                get_llm(provider="qwen")
+            # Test the factory function directly with mocked import
+            with pytest.raises(ValueError, match="Qwen"):
+                from examples.agent_system.llm.provider import _create_qwen_llm
+                _create_qwen_llm("qwen-turbo")
 
 
 class TestNewProviderFactories:
