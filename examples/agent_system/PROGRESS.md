@@ -1,7 +1,7 @@
 # Agent System Progress
 
-Status: in development (LLM integration + Multi-Agent)
-Last updated: 2026-02-06 (synced)
+Status: in development (M7 COMPLETED - Multi-Agent Collaboration)
+Last updated: 2026-02-08
 
 ## Milestones
 
@@ -61,6 +61,13 @@ Last updated: 2026-02-06 (synced)
 - [x] Integrate TesterRole into graph flow (coder -> reviewer -> tester -> approver)
 - [x] Add inter-agent messaging protocol (AgentMessage, MessageQueue, MessageType, MessagePriority)
 - [x] Add dynamic graph with OrchestratorRouter (build_orchestrated_graph)
-- [ ] Tests: multi-agent coordination
+- [x] Tests: multi-agent coordination
+
+### M8 - Extended LLM Providers (NEW) - COMPLETED
+- [x] Add ZhipuAI (ChatGLM) provider
+- [x] Add Minimax provider
+- [x] Add Qwen (DashScope) provider
+- [x] Update config with new API key environment variables
+- [x] Add tests for new providers
 
 ## Atomic step log
