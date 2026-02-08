@@ -1,6 +1,6 @@
 # Agent System Progress
 
-Status: in development (M7 COMPLETED - Multi-Agent Collaboration)
+Status: in development (Feishu Integration COMPLETED)
 Last updated: 2026-02-08
 
 ## Milestones
@@ -69,5 +69,12 @@ Last updated: 2026-02-08
 - [x] Add Qwen (DashScope) provider
 - [x] Update config with new API key environment variables
 - [x] Add tests for new providers
+
+### M9 - Feishu Integration (NEW) - COMPLETED
+- [x] Add FeishuClient API client (gateway/feishu_client.py)
+- [x] Add Feishu webhook bot with command handling (gateway/feishu_bot.py)
+- [x] Add FeishuConfig and DiscordConfig to config.py
+- [x] Add Feishu tests (test_feishu.py) - 22 tests
+- [x] Add bilingual documentation (FEISHU_DISCORD_GUIDE.md)
 
 ## Atomic step log
