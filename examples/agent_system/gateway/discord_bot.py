@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
-import requests
+
+class DiscordCommand(Enum):
+    """Discord commands supported by the bot."""
+    APPROVE = "approve"
+    DENY = "deny"
+    STATUS = "status"
+    TASK = "task"
+    ASK_USER = "ask"
+    CONFIRM_ACTION = "confirm"
 
 
 @dataclass

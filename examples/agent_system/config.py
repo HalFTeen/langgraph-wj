@@ -32,6 +32,13 @@ Environment Variables:
         AGENT_MAX_ITERATIONS: Maximum loop iterations. Default: 10
         AGENT_TIMEOUT_SECONDS: Timeout for each step. Default: 300
 
+    Feishu Configuration:
+        FEISHU_APP_ID: Feishu app ID (required for Feishu integration)
+        FEISHU_APP_SECRET: Feishu app secret (required for Feishu integration)
+        FEISHU_DOMAIN: Feishu domain ("feishu" for China, "lark" for international). Default: "feishu"
+        FEISHU_WEBHOOK_PATH: Webhook path for Feishu events. Default: "/feishu/events"
+        FEISHU_PORT: Port for Feishu webhook server. Default: 8001
+
     Observability:
         LANGCHAIN_TRACING_V2: Enable LangSmith tracing. Default: false
         LANGCHAIN_PROJECT: LangSmith project name. Default: "agent-system"
@@ -122,12 +129,100 @@ class ObservabilityConfig:
 
 
 @dataclass(frozen=True)
+class FeishuConfig:
+    """Configuration for Feishu integration."""
+
+    app_id: str
+    app_secret: str
+    domain: str = "feishu"
+    webhook_path: str = "/feishu/events"
+    port: int = 8001
+    enabled: bool = False
+
+    @classmethod
+    def from_env(cls) -> FeishuConfig | None:
+        """Create FeishuConfig from environment variables.
+
+        Returns None if app_id is not configured (Feishu not enabled).
+        """
+        app_id = os.getenv("FEISHU_APP_ID")
+        if not app_id:
+            return None
+
+        app_secret = os.getenv("FEISHU_APP_SECRET", "")
+        domain = os.getenv("FEISHU_DOMAIN", "feishu")
+        webhook_path = os.getenv("FEISHU_WEBHOOK_PATH", "/feishu/events")
+        port = int(os.getenv("FEISHU_PORT", "8001"))
+        enabled = os.getenv("FEISHU_ENABLED", "false").lower() == "true"
+
+        return cls(
+            app_id=app_id,
+            app_secret=app_secret,
+            domain=domain,
+            webhook_path=webhook_path,
+            port=port,
+            enabled=enabled,
+        )
+
+
+@dataclass(frozen=True)
+class DiscordConfig:
+    """Configuration for Discord integration."""
+
+    bot_token: str
+    guild_id: str
+    channel_id: str
+    webhook_url: str | None = None
+    enabled: bool = False
+
+    @classmethod
+    def from_env(cls) -> DiscordConfig | None:
+        """Create DiscordConfig from environment variables.
+
+        Returns None if bot_token is not configured (Discord not enabled).
+        """
+        bot_token = os.getenv("DISCORD_BOT_TOKEN")
+        if not bot_token:
+            return None
+
+        guild_id = os.getenv("DISCORD_GUILD_ID", "")
+        channel_id = os.getenv("DISCORD_CHANNEL_ID", "")
+        webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+        enabled = os.getenv("DISCORD_ENABLED", "false").lower() == "true"
+
+        return cls(
+            bot_token=bot_token,
+            guild_id=guild_id,
+            channel_id=channel_id,
+            webhook_url=webhook_url,
+            enabled=enabled,
+        )
+
+
+@dataclass(frozen=True)
+class GatewayConfig:
+    """Configuration for gateway services."""
+
+    feishu: FeishuConfig | None = None
+    discord: DiscordConfig | None = None
+
+    @classmethod
+    def from_env(cls) -> "GatewayConfig":
+        """Create GatewayConfig from environment variables."""
+        return cls(
+            feishu=FeishuConfig.from_env(),
+            discord=DiscordConfig.from_env(),
+        )
+
+
+@dataclass(frozen=True)
 class Config:
     """Root configuration for the agent system."""
 
     llm: LLMConfig
     agent: AgentConfig
     observability: ObservabilityConfig
+    gateway: GatewayConfig
 
     @classmethod
     def from_env(cls) -> Config:
@@ -136,6 +231,7 @@ class Config:
             llm=LLMConfig.from_env(),
             agent=AgentConfig.from_env(),
             observability=ObservabilityConfig.from_env(),
+            gateway=GatewayConfig.from_env(),
         )
 
 
