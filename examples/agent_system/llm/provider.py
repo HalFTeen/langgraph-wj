@@ -1,65 +1,50 @@
 """LLM Provider abstraction using langchain-core ChatModel interface.
-
 This module provides a unified interface for accessing different LLM providers
 (OpenAI, Anthropic, etc.) through the langchain-core ChatModel abstraction.
-
 Usage:
     from examples.agent_system.llm import get_llm
-
     # Get default LLM (from environment)
     llm = get_llm()
-
     # Get specific provider
     llm = get_llm(provider="openai", model="gpt-4")
     llm = get_llm(provider="anthropic", model="claude-3-sonnet-20240229")
-
     # Use the LLM
     response = llm.invoke([HumanMessage(content="Hello")])
 """
-
 from __future__ import annotations
-
 import os
 from enum import Enum
 from typing import TYPE_CHECKING
-
 from langchain_core.language_models.chat_models import BaseChatModel
-
 if TYPE_CHECKING:
     pass
 
-
 class LLMProvider(str, Enum):
     """Supported LLM providers."""
-
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     ZHIPU = "zhipu"
     MINIMAX = "minimax"
     QWEN = "qwen"
 
-
 # Default models for each provider
 DEFAULT_MODELS: dict[LLMProvider, str] = {
     LLMProvider.OPENAI: "gpt-4o-mini",
     LLMProvider.ANTHROPIC: "claude-3-5-sonnet-20241022",
-    LLMProvider.ZHIPU: "glm-4-plus",
+    LLMProvider.ZHIPU: "glm-4.7",
     LLMProvider.MINIMAX: "abab6.5s-chat",
     LLMProvider.QWEN: "qwen-turbo",
 }
 
-
 def _create_openai_llm(model: str, **kwargs) -> BaseChatModel:
     """Create an OpenAI ChatModel instance."""
     from langchain_openai import ChatOpenAI
-
     api_key = kwargs.pop("api_key", None) or os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError(
             "OpenAI API key required. Set OPENAI_API_KEY environment variable "
             "or pass api_key parameter."
         )
-
     return ChatOpenAI(
         model=model,
         api_key=api_key,
@@ -67,25 +52,21 @@ def _create_openai_llm(model: str, **kwargs) -> BaseChatModel:
         **kwargs,
     )
 
-
 def _create_anthropic_llm(model: str, **kwargs) -> BaseChatModel:
     """Create an Anthropic ChatModel instance."""
     from langchain_anthropic import ChatAnthropic
-
     api_key = kwargs.pop("api_key", None) or os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError(
             "Anthropic API key required. Set ANTHROPIC_API_KEY environment variable "
             "or pass api_key parameter."
         )
-
     return ChatAnthropic(
         model=model,
         api_key=api_key,
         temperature=kwargs.pop("temperature", 0.0),
         **kwargs,
     )
-
 
 def _create_zhipu_llm(model: str, **kwargs) -> BaseChatModel:
     """Create a ZhipuAI (ChatGLM) ChatModel instance."""
@@ -95,21 +76,40 @@ def _create_zhipu_llm(model: str, **kwargs) -> BaseChatModel:
         raise ValueError(
             "ZhipuAI integration not installed. Install with: pip install langchain-community zhipuai"
         )
-
     api_key = kwargs.pop("api_key", None) or os.getenv("ZHIPU_API_KEY")
     if not api_key:
         raise ValueError(
             "ZhipuAI API key required. Set ZHIPU_API_KEY environment variable "
             "or pass api_key parameter."
         )
-
-    return ChatZhipuAI(
-        model=model,
-        api_key=api_key,
-        temperature=kwargs.pop("temperature", 0.0),
+    # ChatZhipuAI._generate() hardcodes httpx timeout=60s which is too
+    # short for LLM generation. Subclass to override with 180s.
+    from langchain_community.chat_models.zhipuai import (
+        _get_jwt_token,
+        _truncate_params,
+    )
+    import httpx
+    class _ChatZhipuAILongTimeout(ChatZhipuAI):
+        def _generate(self, messages, stop=None, run_manager=None, **kw):
+            if self.zhipuai_api_key is None:
+                raise ValueError("Did not find zhipuai_api_key.")
+            message_dicts, params = self._create_message_dicts(messages, stop)
+            payload = {**params, **kw, "messages": message_dicts, "stream": False}
+            _truncate_params(payload)
+            headers = {
+                "Authorization": _get_jwt_token(self.zhipuai_api_key),
+                "Accept": "application/json",
+            }
+            with httpx.Client(headers=headers, timeout=180) as client:
+                response = client.post(self.zhipuai_api_base, json=payload)
+                response.raise_for_status()
+            return self._create_chat_result(response.json())
+    return _ChatZhipuAILongTimeout(
+        model_name=model,
+        zhipuai_api_key=api_key,
+        temperature=kwargs.pop("temperature", 0.5),
         **kwargs,
     )
-
 
 def _create_minimax_llm(model: str, **kwargs) -> BaseChatModel:
     """Create a Minimax ChatModel instance."""
@@ -119,16 +119,13 @@ def _create_minimax_llm(model: str, **kwargs) -> BaseChatModel:
         raise ValueError(
             "Minimax integration not installed. Install with: pip install langchain-community"
         )
-
     api_key = kwargs.pop("api_key", None) or os.getenv("MINIMAX_API_KEY")
     if not api_key:
         raise ValueError(
             "Minimax API key required. Set MINIMAX_API_KEY environment variable "
             "or pass api_key parameter."
         )
-
     base_url = kwargs.pop("base_url", None) or os.getenv("MINIMAX_BASE_URL")
-
     return ChatMinimax(
         model=model,
         api_key=api_key,
@@ -136,7 +133,6 @@ def _create_minimax_llm(model: str, **kwargs) -> BaseChatModel:
         temperature=kwargs.pop("temperature", 0.0),
         **kwargs,
     )
-
 
 def _create_qwen_llm(model: str, **kwargs) -> BaseChatModel:
     """Create a Qwen (DashScope) ChatModel instance."""
@@ -146,21 +142,18 @@ def _create_qwen_llm(model: str, **kwargs) -> BaseChatModel:
         raise ValueError(
             "Qwen (DashScope) integration not installed. Install with: pip install langchain-community"
         )
-
     api_key = kwargs.pop("api_key", None) or os.getenv("DASHSCOPE_API_KEY")
     if not api_key:
         raise ValueError(
             "Qwen (DashScope) API key required. Set DASHSCOPE_API_KEY environment variable "
             "or pass api_key parameter."
         )
-
     return ChatQwen(
         model=model,
         api_key=api_key,
         temperature=kwargs.pop("temperature", 0.0),
         **kwargs,
     )
-
 
 _PROVIDER_FACTORIES = {
     LLMProvider.OPENAI: _create_openai_llm,
@@ -170,27 +163,22 @@ _PROVIDER_FACTORIES = {
     LLMProvider.QWEN: _create_qwen_llm,
 }
 
-
 def get_llm(
     provider: str | LLMProvider | None = None,
     model: str | None = None,
     **kwargs,
 ) -> BaseChatModel:
     """Get an LLM instance for the specified provider.
-
     Args:
         provider: LLM provider name ("openai", "anthropic"). If None, uses
             AGENT_LLM_PROVIDER environment variable, defaulting to "openai".
         model: Model name. If None, uses provider's default model.
         **kwargs: Additional arguments passed to the LLM constructor
             (temperature, api_key, etc.)
-
     Returns:
         A langchain-core BaseChatModel instance.
-
     Raises:
         ValueError: If the provider is not supported or API key is missing.
-
     Examples:
         >>> llm = get_llm()  # Uses default provider and model
         >>> llm = get_llm(provider="anthropic")
@@ -202,11 +190,9 @@ def get_llm(
         provider = LLMProvider(provider_str.lower())
     elif isinstance(provider, str):
         provider = LLMProvider(provider.lower())
-
     # Determine model
     if model is None:
         model = os.getenv("AGENT_LLM_MODEL") or DEFAULT_MODELS[provider]
-
     # Get factory and create LLM
     factory = _PROVIDER_FACTORIES.get(provider)
     if factory is None:
@@ -214,26 +200,21 @@ def get_llm(
             f"Unsupported LLM provider: {provider}. "
             f"Supported providers: {list(LLMProvider)}"
         )
-
     return factory(model, **kwargs)
-
 
 def get_default_llm(**kwargs) -> BaseChatModel:
     """Get the default LLM based on environment configuration.
-
     This is a convenience function that calls get_llm() with no provider/model
     arguments, using environment variables for configuration.
-
     Environment variables:
         AGENT_LLM_PROVIDER: "openai" or "anthropic" (default: "openai")
         AGENT_LLM_MODEL: Model name (default: provider's default)
         OPENAI_API_KEY: Required if using OpenAI
         ANTHROPIC_API_KEY: Required if using Anthropic
-
     Args:
         **kwargs: Additional arguments passed to get_llm()
-
     Returns:
         A langchain-core BaseChatModel instance.
     """
     return get_llm(**kwargs)
+
