@@ -2,15 +2,15 @@
 """NAL Runner - Start a real NAL pipeline with Claude Code agents.
 Usage:
     # 1. Clone target repo
-    git clone anker@10.34.1.195:/Users/anker/git-server/langgraph-wj.git /tmp/nal-workspace
+    git clone macmini@10.34.1.195:/Users/macmini/git-server/langgraph-wj.git /tmp/nal-workspace
     # 2. Run NAL
     python -m examples.agent_system.run_nal \
         --repo /tmp/nal-workspace \
-        --remote "anker@10.34.1.195:/Users/anker/git-server/langgraph-wj.git" \
+        --remote "macmini@10.34.1.195:/Users/macmini/git-server/langgraph-wj.git" \
         --task "Create a Python function add(a, b) that returns the sum, with tests"
     # Or with environment variables:
     REPO_PATH=/tmp/nal-workspace \
-    GIT_REMOTE="anker@10.34.1.195:/Users/anker/git-server/langgraph-wj.git" \
+    GIT_REMOTE="macmini@10.34.1.195:/Users/macmini/git-server/langgraph-wj.git" \
     python -m examples.agent_system.run_nal \
         --task "Create a Python function add(a, b) that returns the sum, with tests"
 """
@@ -36,7 +36,7 @@ def main() -> None:
     parser.add_argument(
         "--remote",
         default=os.getenv("GIT_REMOTE", ""),
-        help="Git remote URL (e.g. anker@10.34.1.195:/Users/anker/git-server/repo.git)",
+        help="Git remote URL (e.g. macmini@10.34.1.195:/Users/macmini/git-server/repo.git)",
     )
     parser.add_argument(
         "--task",

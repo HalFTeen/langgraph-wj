@@ -154,11 +154,11 @@ class FeishuNotifier:
         self, thread_id: str, task_id: str, branch: str, commit_hash: str = ""
     ) -> None:
         """Notify successful merge."""
+        commit_info = f"\n**Commit:** `{commit_hash[:8]}`" if commit_hash else ""
         self._send(
             f"🔀 **分支合并**\n\n"
             f"**Pipeline:** `{thread_id}`\n"
-            f"**分支:** {branch} → main\n"
-            f"**Commit:** `{commit_hash[:8]}`" if commit_hash else ""
+            f"**分支:** {branch} → main{commit_info}"
         )
     def notify_merge_conflict(
         self, thread_id: str, task_id: str, branch: str, conflicts: list[str]

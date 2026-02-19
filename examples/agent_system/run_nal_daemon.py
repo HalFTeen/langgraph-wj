@@ -13,7 +13,7 @@ Usage:
     # Submit task via CLI (daemon must be running, or use --task directly)
     python -m examples.agent_system.run_nal_daemon --task "Create a website"
     # Submit task via Feishu:
-    @bot /new --repo /tmp/project 创建一个个人网站
+    @bot /new 创建一个个人网站
 """
 from __future__ import annotations
 import argparse
@@ -81,7 +81,8 @@ class NALDaemon:
         if self._poller:
             self._poller.start()
             logger.info("Feishu message poller started")
-            self._send("🤖 **NAL Daemon 已启动**\n\n"
+            repo_info = f"\n**仓库:** `{self._default_repo}`" if self._default_repo else ""
+            self._send(f"🤖 **NAL Daemon 已启动**{repo_info}\n\n"
                         "提交任务：`@bot /new 你的需求描述`\n"
                         "查看状态：`@bot /status`\n"
                         "帮助：`@bot /help`")
@@ -117,7 +118,6 @@ class NALDaemon:
             self._send(f"❌ 仓库路径无效: `{repo_path}`")
             return
         logger.info("Starting pipeline: %s", task.requirement[:80])
-        self._send(f"📋 **收到任务**\n\n{task.requirement[:300]}\n\n正在拆解...")
         # --- Init infrastructure ---
         from examples.agent_system.core.git_ops import GitOps
         git_ops = GitOps(repo_path=repo_path, remote_url=remote_url or None)
@@ -177,7 +177,6 @@ class NALDaemon:
         except Exception as exc:
             logger.error("Pipeline error: %s", exc, exc_info=True)
             self._send(f"❌ Pipeline 执行出错: {exc}")
-        self._send("🏁 **Pipeline 执行完成**\n\n等待下一个任务...")
     # --- Human feedback ---
     def _wait_for_human_feedback(self, timeout: float = 600) -> str | None:
         """Wait for human feedback from Feishu. Returns text or None on timeout."""
@@ -235,10 +234,10 @@ class NALDaemon:
             elif cmd == "status":
                 self._send("💤 **空闲中**\n\n当前没有正在执行的任务。\n发送 `@bot /new 任务描述` 提交新任务。")
             elif cmd == "help":
+                repo_info = f"\n**当前仓库:** `{self._default_repo}`" if self._default_repo else ""
                 self._send(
-                    "🤖 **NAL Daemon 命令**\n\n"
+                    f"🤖 **NAL Daemon 命令**{repo_info}\n\n"
                     "  `/new <描述>` - 提交新任务\n"
-                    "  `/new --repo /path <描述>` - 指定仓库提交任务\n"
                     "  `/status` - 查看状态\n"
                     "  `/stop` - 停止 Daemon\n"
                     "  `/help` - 帮助\n\n"
@@ -250,34 +249,27 @@ class NALDaemon:
         else:
             self._send("💤 当前没有正在执行的任务。\n发送 `@bot /new 任务描述` 提交新任务。")
     def _handle_new_command(self, text: str) -> None:
-        """Parse /new command and submit task."""
-        # /new --repo /path/to/project 任务描述
-        # /new 任务描述 (uses default repo)
+        """Parse /new command and submit task.
+        Always uses daemon's configured repo (--repo at startup).
+        """
+        # Extract requirement: everything after "/new"
         import shlex
         try:
             parts = shlex.split(text)
         except ValueError:
             parts = text.split()
         parts = parts[1:]  # Remove "/new"
-        repo = self._default_repo
-        i = 0
-        while i < len(parts):
-            if parts[i] == "--repo" and i + 1 < len(parts):
-                repo = parts[i + 1]
-                i += 2
-            else:
-                break
-        requirement = " ".join(parts[i:])
+        requirement = " ".join(parts)
         if not requirement:
-            self._send("❌ 用法: `/new [--repo /path] 任务描述`")
+            self._send("❌ 用法: `/new 任务描述`")
             return
-        if not repo:
-            self._send("❌ 请指定仓库: `/new --repo /path 任务描述`\n"
-                        "或启动时指定默认仓库: `--repo /path`")
+        if not self._default_repo:
+            self._send("❌ Daemon 启动时未配置仓库。\n"
+                        "请用 `--repo /path` 重启 Daemon。")
             return
-        task = PipelineTask(requirement=requirement, repo_path=repo)
+        task = PipelineTask(requirement=requirement, repo_path=self._default_repo)
         self.submit_task(task)
-        self._send(f"✅ 任务已加入队列\n\n**仓库:** `{repo}`\n**需求:** {requirement[:200]}")
+        self._send(f"✅ 任务已加入队列\n\n**仓库:** `{self._default_repo}`\n**需求:** {requirement[:200]}")
     def _handle_command_during_pipeline(self, msg) -> None:
         """Handle commands received during pipeline execution."""
         text = msg.text
@@ -290,7 +282,6 @@ class NALDaemon:
             self._running = False
         elif cmd == "new":
             self._handle_new_command(text)
-            self._send("📋 任务已排队，将在当前 Pipeline 完成后执行。")
         elif cmd == "help":
             self._send(
                 "🤖 **执行中命令**\n\n"

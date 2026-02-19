@@ -185,9 +185,6 @@ def dispatch_node(state: CoordinatorState) -> dict:
             git_ops.acquire_lock(branch, agent_id)
         except GitOpsError as exc:
             logger.warning("Git branch/lock: %s (continuing)", exc)
-    # Feishu notification
-    notifier = _get_notifier()
-    notifier.notify_task_dispatched("nal", task_id, task.title, agent_id)
     return {
         "task_graph": graph.to_dict(),
         "current_task_id": task_id,
@@ -467,12 +464,8 @@ def merge_node(state: CoordinatorState) -> dict:
             default_branch = git_ops.get_default_branch()
             try:
                 result = git_ops.merge(task.branch, default_branch)
-                notifier = _get_notifier()
                 if result.success:
                     logger.info("Merged %s → %s: %s", task.branch, default_branch, result.commit_hash)
-                    notifier.notify_merge_success(
-                        "nal", task_id, task.branch, result.commit_hash or ""
-                    )
                     # Sync with remote before push (skip in daemon mode)
                     if not _is_daemon_mode():
                         try:
@@ -485,9 +478,6 @@ def merge_node(state: CoordinatorState) -> dict:
                 else:
                     logger.error(
                         "Merge conflict %s → %s: %s", task.branch, default_branch, result.conflicts
-                    )
-                    notifier.notify_merge_conflict(
-                        "nal", task_id, task.branch, result.conflicts or []
                     )
             except GitOpsError as exc:
                 logger.warning("Merge failed: %s", exc)
