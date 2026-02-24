@@ -365,7 +365,7 @@ def _handle_pipeline(client: lark.Client, ctx: ChatContext, requirement: str) ->
     """Start a NAL pipeline."""
     thread_id = _new_thread_id()
     user = _get_user(ctx.user_id)
-    repo_path = os.getenv("REPO_PATH", "")
+    repo_path = user.get("repo_path", _repo_path)
     result = _start_pipeline(requirement, thread_id, repo_path)
     if result is None:
         _reply(client, ctx, f"Pipeline启动失败，Gateway是否运行? {GATEWAY_URL}")
