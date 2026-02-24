@@ -11,21 +11,26 @@ Usage:
     # Use the LLM
     response = llm.invoke([HumanMessage(content="Hello")])
 """
+
 from __future__ import annotations
 import os
 from enum import Enum
 from typing import TYPE_CHECKING
 from langchain_core.language_models.chat_models import BaseChatModel
+
 if TYPE_CHECKING:
     pass
 
+
 class LLMProvider(str, Enum):
     """Supported LLM providers."""
+
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     ZHIPU = "zhipu"
     MINIMAX = "minimax"
     QWEN = "qwen"
+
 
 # Default models for each provider
 DEFAULT_MODELS: dict[LLMProvider, str] = {
@@ -36,9 +41,11 @@ DEFAULT_MODELS: dict[LLMProvider, str] = {
     LLMProvider.QWEN: "qwen-turbo",
 }
 
+
 def _create_openai_llm(model: str, **kwargs) -> BaseChatModel:
     """Create an OpenAI ChatModel instance."""
     from langchain_openai import ChatOpenAI
+
     api_key = kwargs.pop("api_key", None) or os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError(
@@ -52,9 +59,11 @@ def _create_openai_llm(model: str, **kwargs) -> BaseChatModel:
         **kwargs,
     )
 
+
 def _create_anthropic_llm(model: str, **kwargs) -> BaseChatModel:
     """Create an Anthropic ChatModel instance."""
     from langchain_anthropic import ChatAnthropic
+
     api_key = kwargs.pop("api_key", None) or os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError(
@@ -67,6 +76,7 @@ def _create_anthropic_llm(model: str, **kwargs) -> BaseChatModel:
         temperature=kwargs.pop("temperature", 0.0),
         **kwargs,
     )
+
 
 def _create_zhipu_llm(model: str, **kwargs) -> BaseChatModel:
     """Create a ZhipuAI (ChatGLM) ChatModel instance."""
@@ -89,6 +99,7 @@ def _create_zhipu_llm(model: str, **kwargs) -> BaseChatModel:
         _truncate_params,
     )
     import httpx
+
     class _ChatZhipuAILongTimeout(ChatZhipuAI):
         def _generate(self, messages, stop=None, run_manager=None, **kw):
             if self.zhipuai_api_key is None:
@@ -104,6 +115,7 @@ def _create_zhipu_llm(model: str, **kwargs) -> BaseChatModel:
                 response = client.post(self.zhipuai_api_base, json=payload)
                 response.raise_for_status()
             return self._create_chat_result(response.json())
+
     return _ChatZhipuAILongTimeout(
         model_name=model,
         zhipuai_api_key=api_key,
@@ -111,13 +123,14 @@ def _create_zhipu_llm(model: str, **kwargs) -> BaseChatModel:
         **kwargs,
     )
 
+
 def _create_minimax_llm(model: str, **kwargs) -> BaseChatModel:
-    """Create a Minimax ChatModel instance."""
+    """Create a Minimax ChatModel instance using OpenAI-compatible API."""
     try:
-        from langchain_community.chat_models import ChatMinimax
+        from langchain_openai import ChatOpenAI
     except ImportError:
         raise ValueError(
-            "Minimax integration not installed. Install with: pip install langchain-community"
+            "OpenAI integration required for Minimax. Install with: pip install langchain-openai"
         )
     api_key = kwargs.pop("api_key", None) or os.getenv("MINIMAX_API_KEY")
     if not api_key:
@@ -125,14 +138,17 @@ def _create_minimax_llm(model: str, **kwargs) -> BaseChatModel:
             "Minimax API key required. Set MINIMAX_API_KEY environment variable "
             "or pass api_key parameter."
         )
-    base_url = kwargs.pop("base_url", None) or os.getenv("MINIMAX_BASE_URL")
-    return ChatMinimax(
+    base_url = kwargs.pop("base_url", None) or os.getenv(
+        "MINIMAX_BASE_URL", "https://api.minimax.chat/v1"
+    )
+    return ChatOpenAI(
         model=model,
         api_key=api_key,
         base_url=base_url,
         temperature=kwargs.pop("temperature", 0.0),
         **kwargs,
     )
+
 
 def _create_qwen_llm(model: str, **kwargs) -> BaseChatModel:
     """Create a Qwen (DashScope) ChatModel instance."""
@@ -155,6 +171,7 @@ def _create_qwen_llm(model: str, **kwargs) -> BaseChatModel:
         **kwargs,
     )
 
+
 _PROVIDER_FACTORIES = {
     LLMProvider.OPENAI: _create_openai_llm,
     LLMProvider.ANTHROPIC: _create_anthropic_llm,
@@ -162,6 +179,7 @@ _PROVIDER_FACTORIES = {
     LLMProvider.MINIMAX: _create_minimax_llm,
     LLMProvider.QWEN: _create_qwen_llm,
 }
+
 
 def get_llm(
     provider: str | LLMProvider | None = None,
@@ -202,6 +220,7 @@ def get_llm(
         )
     return factory(model, **kwargs)
 
+
 def get_default_llm(**kwargs) -> BaseChatModel:
     """Get the default LLM based on environment configuration.
     This is a convenience function that calls get_llm() with no provider/model
@@ -217,4 +236,3 @@ def get_default_llm(**kwargs) -> BaseChatModel:
         A langchain-core BaseChatModel instance.
     """
     return get_llm(**kwargs)
-

@@ -5,6 +5,7 @@ Supports two adapter types:
 Both implement the same AgentInterface, so Coordinator doesn't care
 which engine is behind an agent.
 """
+
 from __future__ import annotations
 import json
 import logging
@@ -16,24 +17,31 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
 logger = logging.getLogger(__name__)
+
 
 class AgentRole(str, Enum):
     """Agent roles in the NAL system."""
+
     PLANNER = "planner"
     CODER = "coder"
     REVIEWER = "reviewer"
     EXPLORER = "explorer"
 
+
 class AgentEngine(str, Enum):
     """Supported execution engines."""
+
     LLM = "llm"
     CLAUDE_CODE = "claude-code"
     OPENCODE = "opencode"
 
+
 @dataclass
 class AgentResult:
     """Result of an agent executing a task."""
+
     success: bool
     files_modified: dict[str, str] = field(default_factory=dict)  # path → content
     test_files: dict[str, str] = field(default_factory=dict)  # path → content
@@ -42,6 +50,7 @@ class AgentResult:
     review_decision: str = ""  # "approved" | "changes" (for reviewer)
     review_feedback: str = ""  # feedback text (for reviewer)
     task_graph: dict[str, Any] | None = None  # TaskGraph dict (for planner)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "success": self.success,
@@ -54,9 +63,11 @@ class AgentResult:
             "task_graph": self.task_graph,
         }
 
+
 @dataclass
 class AgentSession:
     """Agent working session (PRD Section 2.4)."""
+
     agent_id: str
     role: AgentRole
     machine_id: str = "local"
@@ -67,6 +78,7 @@ class AgentSession:
     token_usage: int = 0
     tasks_completed: int = 0
     tasks_failed: int = 0
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
@@ -80,6 +92,7 @@ class AgentSession:
             "tasks_completed": self.tasks_completed,
             "tasks_failed": self.tasks_failed,
         }
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AgentSession:
         d = dict(data)
@@ -87,12 +100,14 @@ class AgentSession:
         d["engine"] = AgentEngine(d["engine"])
         return cls(**d)
 
+
 class AgentInterface(ABC):
     """Abstract interface for agent execution engines.
     Coordinator calls this interface to delegate work to agents.
     The implementation decides whether to use LLM API, Claude Code CLI,
     or any other coding tool.
     """
+
     @abstractmethod
     def execute_task(
         self,
@@ -106,23 +121,28 @@ class AgentInterface(ABC):
         Returns:
             AgentResult with modified files, test files, and status.
         """
+
     @abstractmethod
     def get_status(self) -> str:
         """Get the agent's current status (idle, busy, error)."""
+
     @property
     @abstractmethod
     def agent_id(self) -> str:
         """Unique identifier for this agent instance."""
+
     @property
     @abstractmethod
     def role(self) -> AgentRole:
         """The role this agent plays."""
+
 
 class LLMAgentAdapter(AgentInterface):
     """Adapter that bridges existing AgentRole implementations.
     Wraps the existing CoderRole/ReviewerRole/TesterRole/etc.
     so they can be used through the AgentInterface.
     """
+
     def __init__(
         self,
         role_instance: Any,  # AgentRole from roles/base.py
@@ -133,14 +153,18 @@ class LLMAgentAdapter(AgentInterface):
         self._agent_role = agent_role
         self._agent_id = agent_id or f"llm-{agent_role.value}-{uuid.uuid4().hex[:6]}"
         self._status = "idle"
+
     @property
     def agent_id(self) -> str:
         return self._agent_id
+
     @property
     def role(self) -> AgentRole:
         return self._agent_role
+
     def get_status(self) -> str:
         return self._status
+
     def execute_task(
         self,
         task_description: str,
@@ -148,6 +172,7 @@ class LLMAgentAdapter(AgentInterface):
     ) -> AgentResult:
         """Execute task by calling the underlying AgentRole.process()."""
         from langchain_core.messages import HumanMessage
+
         self._status = "busy"
         ctx = context or {}
         try:
@@ -179,6 +204,7 @@ class LLMAgentAdapter(AgentInterface):
         finally:
             self._status = "idle"
 
+
 class ClaudeCodeAdapter(AgentInterface):
     """Adapter that spawns Claude Code CLI as a subprocess.
     Each invocation starts a new Claude Code process with:
@@ -186,6 +212,7 @@ class ClaudeCodeAdapter(AgentInterface):
     - A CLAUDE.md injected for role configuration
     - Independent API key configuration
     """
+
     def __init__(
         self,
         worktree_path: str,
@@ -202,14 +229,18 @@ class ClaudeCodeAdapter(AgentInterface):
         self._agent_id = agent_id or f"cc-{agent_role.value}-{uuid.uuid4().hex[:6]}"
         self._timeout = timeout_seconds
         self._status = "idle"
+
     @property
     def agent_id(self) -> str:
         return self._agent_id
+
     @property
     def role(self) -> AgentRole:
         return self._agent_role
+
     def get_status(self) -> str:
         return self._status
+
     def execute_task(
         self,
         task_description: str,
@@ -231,16 +262,21 @@ class ClaudeCodeAdapter(AgentInterface):
             settings_file = settings_dir / "settings.local.json"
             if not settings_file.exists():
                 settings_dir.mkdir(parents=True, exist_ok=True)
-                settings_file.write_text(json.dumps({
-                    "permissions": {
-                        "allow": [
-                            "Read(*)",
-                            "Edit(*)",
-                            "Write(*)",
-                            "Bash(*)",
-                        ]
-                    }
-                }, indent=2))
+                settings_file.write_text(
+                    json.dumps(
+                        {
+                            "permissions": {
+                                "allow": [
+                                    "Read(*)",
+                                    "Edit(*)",
+                                    "Write(*)",
+                                    "Bash(*)",
+                                ]
+                            }
+                        },
+                        indent=2,
+                    )
+                )
             # Build the prompt
             prompt = task_description
             if context:
@@ -289,6 +325,7 @@ class ClaudeCodeAdapter(AgentInterface):
             )
         finally:
             self._status = "idle"
+
     def _scan_modified_files(self) -> dict[str, str]:
         """Scan git status for files Claude Code created or modified."""
         try:
@@ -318,11 +355,455 @@ class ClaudeCodeAdapter(AgentInterface):
         except Exception:
             return {}
 
+
+class OpenCodeAdapter(AgentInterface):
+    """Adapter that spawns OpenCode CLI as a subprocess.
+    Each invocation starts a new OpenCode process with:
+    - A specific worktree directory
+    - A CLAUDE.md injected for role configuration
+    - UFW mode enabled for unrestricted file access
+    """
+
+    def __init__(
+        self,
+        worktree_path: str,
+        claude_md_content: str = "",
+        api_key_ref: str = "",
+        agent_role: AgentRole = AgentRole.CODER,
+        agent_id: str | None = None,
+        timeout_seconds: int = 300,
+    ) -> None:
+        self._worktree_path = Path(worktree_path)
+        self._claude_md_content = claude_md_content
+        self._api_key_ref = api_key_ref
+        self._agent_role = agent_role
+        self._agent_id = agent_id or f"oc-{agent_role.value}-{uuid.uuid4().hex[:6]}"
+        self._timeout = timeout_seconds
+        self._status = "idle"
+
+    @property
+    def agent_id(self) -> str:
+        return self._agent_id
+
+    @property
+    def role(self) -> AgentRole:
+        return self._agent_role
+
+    def get_status(self) -> str:
+        return self._status
+
+    def execute_task(
+        self,
+        task_description: str,
+        context: dict[str, Any] | None = None,
+    ) -> AgentResult:
+        """Execute task by spawning an OpenCode CLI process.
+        Uses `opencode run` mode (non-interactive) so OpenCode
+        uses tools to edit files in the worktree. UFW mode enabled.
+        """
+        self._status = "busy"
+        try:
+            # Inject CLAUDE.md into worktree if content provided
+            if self._claude_md_content:
+                claude_md_path = self._worktree_path / "CLAUDE.md"
+                claude_md_path.write_text(self._claude_md_content)
+
+            # Ensure .opencode directory exists for non-interactive mode
+            settings_dir = self._worktree_path / ".opencode"
+            settings_file = settings_dir / "settings.local.json"
+            if not settings_file.exists():
+                settings_dir.mkdir(parents=True, exist_ok=True)
+                # UFW mode enabled - allow all operations
+                settings_file.write_text(
+                    json.dumps(
+                        {
+                            "permissions": {
+                                "allow": [
+                                    "Read(*)",
+                                    "Edit(*)",
+                                    "Write(*)",
+                                    "Bash(*)",
+                                ]
+                            },
+                            "ufw": True,
+                        },
+                        indent=2,
+                    )
+                )
+
+            # Build the prompt
+            prompt = task_description
+            if context:
+                ctx_str = json.dumps(context, indent=2, default=str)
+                prompt = f"{task_description}\n\nContext:\n{ctx_str}"
+
+            # Run OpenCode CLI using `opencode run` command with model
+            env = os.environ.copy()
+            env.pop("OPENCODE", None)
+            model = os.getenv("AGENT_LLM_MODEL", "minimax/MiniMax-M2.5")
+            cmd = ["opencode", "run", "--model", model, prompt]
+            result = subprocess.run(
+                cmd,
+                cwd=str(self._worktree_path),
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+                env=env,
+            )
+            if result.returncode != 0:
+                return AgentResult(
+                    success=False,
+                    message=f"OpenCode exited with code {result.returncode}: {result.stderr}",
+                )
+
+            # Scan worktree for files OpenCode actually created/modified
+            files_modified = self._scan_modified_files()
+            return AgentResult(
+                success=True,
+                files_modified=files_modified,
+                message=result.stdout[:2000] if result.stdout else "Done",
+            )
+        except subprocess.TimeoutExpired:
+            return AgentResult(
+                success=False,
+                message=f"OpenCode timed out after {self._timeout}s",
+            )
+        except FileNotFoundError:
+            return AgentResult(
+                success=False,
+                message="OpenCode CLI not found. Install with: npm install -g oh-my-opencode",
+            )
+        except Exception as exc:
+            return AgentResult(
+                success=False,
+                message=f"OpenCode error: {exc}",
+            )
+        finally:
+            self._status = "idle"
+
+    def _scan_modified_files(self) -> dict[str, str]:
+        """Scan git status for files OpenCode created or modified."""
+        try:
+            # Get list of new/modified files (untracked + modified)
+            result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=str(self._worktree_path),
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            files: dict[str, str] = {}
+            for line in result.stdout.strip().split("\n"):
+                if not line.strip():
+                    continue
+                # Status codes: M=modified, A=added, ??=untracked
+                status = line[:2].strip()
+                filepath = line[3:].strip()
+                if status in ("M", "A", "??", "AM", "MM"):
+                    full_path = self._worktree_path / filepath
+                    if full_path.is_file() and not filepath.startswith("."):
+                        try:
+                            files[filepath] = full_path.read_text()
+                        except (UnicodeDecodeError, OSError):
+                            pass  # Skip binary files
+            return files
+        except Exception:
+            return {}
+
+
+class OpenCodePlannerAdapter(AgentInterface):
+    """Planner that uses OpenCode (--print mode) to decompose requirements.
+    Uses --print because the planner doesn't write files, it just thinks
+    and outputs a structured TaskGraph JSON.
+    """
+
+    def __init__(
+        self,
+        agent_id: str | None = None,
+        timeout_seconds: int = 120,
+    ) -> None:
+        self._agent_id = agent_id or f"oc-planner-{uuid.uuid4().hex[:6]}"
+        self._timeout = timeout_seconds
+        self._status = "idle"
+
+    @property
+    def agent_id(self) -> str:
+        return self._agent_id
+
+    @property
+    def role(self) -> AgentRole:
+        return AgentRole.PLANNER
+
+    def get_status(self) -> str:
+        return self._status
+
+    def execute_task(
+        self,
+        task_description: str,
+        context: dict[str, Any] | None = None,
+    ) -> AgentResult:
+        """Execute planning task by spawning OpenCode CLI in print mode."""
+        self._status = "busy"
+        try:
+            prompt = task_description
+            if context:
+                ctx_str = json.dumps(context, indent=2, default=str)
+                prompt = f"{task_description}\n\nContext:\n{ctx_str}"
+
+            # Add instruction to output JSON
+            prompt = f"""{prompt}
+
+Output your response as a JSON object with the following structure:
+{{
+    "tasks": [
+        {{"id": "task_1", "description": "...", "depends_on": []}},
+        ...
+    ]
+}}
+Only output the JSON, no other text."""
+
+            env = {k: v for k, v in os.environ.items() if k != "OPENCODE"}
+            cmd = ["opencode", "run", "--model", "minimax/MiniMax-M2.5", prompt]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+                env=env,
+            )
+            if result.returncode != 0:
+                return AgentResult(
+                    success=False,
+                    message=f"OpenCode planner exited with code {result.returncode}: {result.stderr}",
+                )
+
+            # Try to parse JSON from output
+            task_graph = None
+            try:
+                output = result.stdout
+                start = output.find("{")
+                end = output.rfind("}") + 1
+                if start >= 0 and end > start:
+                    parsed = json.loads(output[start:end])
+                    # Validate format - must have "tasks" as dict with string keys
+                    if isinstance(parsed, dict) and "tasks" in parsed:
+                        tasks = parsed["tasks"]
+                        if isinstance(tasks, dict):
+                            # Ensure all keys are strings
+                            task_graph = {
+                                "tasks": {str(k): v for k, v in tasks.items()}
+                            }
+            except (json.JSONDecodeError, Exception):
+                pass
+
+            return AgentResult(
+                success=True,
+                message=result.stdout[:2000] if result.stdout else "Done",
+                task_graph=task_graph,
+            )
+        except subprocess.TimeoutExpired:
+            return AgentResult(
+                success=False,
+                message=f"OpenCode planner timed out after {self._timeout}s",
+            )
+        except FileNotFoundError:
+            return AgentResult(
+                success=False,
+                message="OpenCode CLI not found. Install with: npm install -g oh-my-opencode",
+            )
+        except Exception as exc:
+            return AgentResult(
+                success=False,
+                message=f"OpenCode planner error: {exc}",
+            )
+        finally:
+            self._status = "idle"
+
+
+class OpenCodeReviewerAdapter(AgentInterface):
+    """Reviewer that uses OpenCode to review code changes."""
+
+    def __init__(
+        self,
+        worktree_path: str,
+        agent_id: str | None = None,
+        timeout_seconds: int = 180,
+    ) -> None:
+        self._worktree_path = Path(worktree_path)
+        self._agent_id = agent_id or f"oc-reviewer-{uuid.uuid4().hex[:6]}"
+        self._timeout = timeout_seconds
+        self._status = "idle"
+
+    @property
+    def agent_id(self) -> str:
+        return self._agent_id
+
+    @property
+    def role(self) -> AgentRole:
+        return AgentRole.REVIEWER
+
+    def get_status(self) -> str:
+        return self._status
+
+    def execute_task(
+        self,
+        task_description: str,
+        context: dict[str, Any] | None = None,
+    ) -> AgentResult:
+        """Execute review task by spawning OpenCode CLI."""
+        self._status = "busy"
+        try:
+            prompt = f"""Review the following code changes and provide feedback.
+
+{task_description}
+
+Provide your review in JSON format:
+{{
+    "decision": "approved" or "changes",
+    "feedback": "detailed feedback text"
+}}
+"""
+
+            if context:
+                ctx_str = json.dumps(context, indent=2, default=str)
+                prompt = f"{prompt}\n\nContext:\n{ctx_str}"
+
+            env = {k: v for k, v in os.environ.items() if k != "OPENCODE"}
+            cmd = ["opencode", "run", "--model", "minimax/MiniMax-M2.5", prompt]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+                env=env,
+            )
+            if result.returncode != 0:
+                return AgentResult(
+                    success=False,
+                    message=f"OpenCode reviewer exited with code {result.returncode}: {result.stderr}",
+                )
+
+            # Try to parse decision from output
+            decision = "changes"
+            feedback = result.stdout
+            try:
+                start = result.stdout.find("{")
+                end = result.stdout.rfind("}") + 1
+                if start >= 0 and end > start:
+                    parsed = json.loads(result.stdout[start:end])
+                    decision = parsed.get("decision", "changes")
+                    feedback = parsed.get("feedback", feedback)
+            except json.JSONDecodeError:
+                pass
+
+            return AgentResult(
+                success=True,
+                message=feedback[:2000],
+                review_decision=decision,
+                review_feedback=feedback,
+            )
+        except subprocess.TimeoutExpired:
+            return AgentResult(
+                success=False,
+                message=f"OpenCode reviewer timed out after {self._timeout}s",
+            )
+        except FileNotFoundError:
+            return AgentResult(
+                success=False,
+                message="OpenCode CLI not found. Install with: npm install -g oh-my-opencode",
+            )
+        except Exception as exc:
+            return AgentResult(
+                success=False,
+                message=f"OpenCode reviewer error: {exc}",
+            )
+        finally:
+            self._status = "idle"
+
+
+class OpenCodeExplorerAdapter(AgentInterface):
+    """Explorer that uses OpenCode to explore codebase."""
+
+    def __init__(
+        self,
+        repo_path: str,
+        agent_id: str | None = None,
+        timeout_seconds: int = 120,
+    ) -> None:
+        self._repo_path = Path(repo_path)
+        self._agent_id = agent_id or f"oc-explorer-{uuid.uuid4().hex[:6]}"
+        self._timeout = timeout_seconds
+        self._status = "idle"
+
+    @property
+    def agent_id(self) -> str:
+        return self._agent_id
+
+    @property
+    def role(self) -> AgentRole:
+        return AgentRole.EXPLORER
+
+    def get_status(self) -> str:
+        return self._status
+
+    def execute_task(
+        self,
+        task_description: str,
+        context: dict[str, Any] | None = None,
+    ) -> AgentResult:
+        """Execute exploration task by spawning OpenCode CLI."""
+        self._status = "busy"
+        try:
+            prompt = task_description
+            if context:
+                ctx_str = json.dumps(context, indent=2, default=str)
+                prompt = f"{prompt}\n\nContext:\n{ctx_str}"
+
+            env = {k: v for k, v in os.environ.items() if k != "OPENCODE"}
+            cmd = ["opencode", "run", "--model", "minimax/MiniMax-M2.5", prompt]
+            result = subprocess.run(
+                cmd,
+                cwd=str(self._repo_path),
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+                env=env,
+            )
+            if result.returncode != 0:
+                return AgentResult(
+                    success=False,
+                    message=f"OpenCode explorer exited with code {result.returncode}: {result.stderr}",
+                )
+
+            return AgentResult(
+                success=True,
+                message=result.stdout[:2000] if result.stdout else "Done",
+            )
+        except subprocess.TimeoutExpired:
+            return AgentResult(
+                success=False,
+                message=f"OpenCode explorer timed out after {self._timeout}s",
+            )
+        except FileNotFoundError:
+            return AgentResult(
+                success=False,
+                message="OpenCode CLI not found. Install with: npm install -g oh-my-opencode",
+            )
+        except Exception as exc:
+            return AgentResult(
+                success=False,
+                message=f"OpenCode explorer error: {exc}",
+            )
+        finally:
+            self._status = "idle"
+
+
 class ClaudePlannerAdapter(AgentInterface):
     """Planner that uses Claude Code (--print mode) to decompose requirements.
     Uses --print because the planner doesn't write files, it just thinks
     and outputs a structured TaskGraph JSON.
     """
+
     def __init__(
         self,
         agent_id: str | None = None,
@@ -331,14 +812,18 @@ class ClaudePlannerAdapter(AgentInterface):
         self._agent_id = agent_id or f"claude-planner-{uuid.uuid4().hex[:6]}"
         self._timeout = timeout_seconds
         self._status = "idle"
+
     @property
     def agent_id(self) -> str:
         return self._agent_id
+
     @property
     def role(self) -> AgentRole:
         return AgentRole.PLANNER
+
     def get_status(self) -> str:
         return self._status
+
     def execute_task(
         self,
         task_description: str,
@@ -428,10 +913,12 @@ Rules:
             return AgentResult(success=False, message=f"Planner error: {exc}")
         finally:
             self._status = "idle"
+
     @staticmethod
     def _parse_task_graph(output: str) -> dict[str, Any] | None:
         """Extract JSON task graph from Claude's output."""
         import re
+
         # Try direct parse first
         try:
             data = json.loads(output)
@@ -467,11 +954,13 @@ Rules:
                         break
         return None
 
+
 class ClaudeExplorerAdapter(AgentInterface):
     """Explorer that scans a codebase and produces a structured analysis.
     Uses claude --print to analyze repo structure, key files, architecture.
     Returns the analysis as message text for the Planner to consume.
     """
+
     def __init__(
         self,
         repo_path: str = "",
@@ -482,14 +971,18 @@ class ClaudeExplorerAdapter(AgentInterface):
         self._agent_id = agent_id or f"claude-explorer-{uuid.uuid4().hex[:6]}"
         self._timeout = timeout_seconds
         self._status = "idle"
+
     @property
     def agent_id(self) -> str:
         return self._agent_id
+
     @property
     def role(self) -> AgentRole:
         return AgentRole.EXPLORER
+
     def get_status(self) -> str:
         return self._status
+
     def execute_task(
         self,
         task_description: str,
@@ -498,19 +991,38 @@ class ClaudeExplorerAdapter(AgentInterface):
         """Scan a codebase and produce an analysis summary."""
         self._status = "busy"
         try:
-            repo = context.get("repo_path", self._repo_path) if context else self._repo_path
+            repo = (
+                context.get("repo_path", self._repo_path)
+                if context
+                else self._repo_path
+            )
             if not repo:
                 return AgentResult(success=False, message="No repo_path provided")
             # First gather repo structure via tree/find
             tree_output = ""
             try:
                 tree_result = subprocess.run(
-                    ["find", ".", "-type", "f", "-name", "*.py",
-                     "-not", "-path", "./.git/*",
-                     "-not", "-path", "./__pycache__/*",
-                     "-not", "-path", "*/node_modules/*"],
+                    [
+                        "find",
+                        ".",
+                        "-type",
+                        "f",
+                        "-name",
+                        "*.py",
+                        "-not",
+                        "-path",
+                        "./.git/*",
+                        "-not",
+                        "-path",
+                        "./__pycache__/*",
+                        "-not",
+                        "-path",
+                        "*/node_modules/*",
+                    ],
                     cwd=repo,
-                    capture_output=True, text=True, timeout=10,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
                 )
                 tree_output = tree_result.stdout.strip()
             except Exception:
@@ -554,12 +1066,14 @@ Be concise. Focus on information needed to plan code changes."""
             return AgentResult(success=False, message=f"Explorer error: {exc}")
         finally:
             self._status = "idle"
+
     @staticmethod
     def scan_repo_structure(repo_path: str) -> str:
         """Quick local scan of repo structure without LLM.
         Returns a summary string suitable for prepending to a requirement.
         """
         from pathlib import Path
+
         repo = Path(repo_path)
         if not repo.is_dir():
             return ""
@@ -574,8 +1088,10 @@ Be concise. Focus on information needed to plan code changes."""
         # File tree (Python files only, max 50)
         py_files = sorted(repo.rglob("*.py"))
         py_files = [
-            f for f in py_files
-            if ".git" not in str(f) and "__pycache__" not in str(f)
+            f
+            for f in py_files
+            if ".git" not in str(f)
+            and "__pycache__" not in str(f)
             and "node_modules" not in str(f)
         ][:50]
         if py_files:
@@ -586,15 +1102,23 @@ Be concise. Focus on information needed to plan code changes."""
                 lines.append(f"  {rel} ({size}B)")
             lines.append("")
         # Key config files
-        for cfg in ["pyproject.toml", "setup.py", "requirements.txt", "package.json", "Makefile"]:
+        for cfg in [
+            "pyproject.toml",
+            "setup.py",
+            "requirements.txt",
+            "package.json",
+            "Makefile",
+        ]:
             cfg_path = repo / cfg
             if cfg_path.exists():
                 content = cfg_path.read_text()[:500]
                 lines.append(f"## {cfg} (first 500 chars)\n{content}\n")
         return "\n".join(lines)
 
+
 class ClaudeReviewerAdapter(AgentInterface):
     """Reviewer that uses Claude Code (--print mode) to review code."""
+
     def __init__(
         self,
         agent_id: str | None = None,
@@ -603,14 +1127,18 @@ class ClaudeReviewerAdapter(AgentInterface):
         self._agent_id = agent_id or f"claude-reviewer-{uuid.uuid4().hex[:6]}"
         self._timeout = timeout_seconds
         self._status = "idle"
+
     @property
     def agent_id(self) -> str:
         return self._agent_id
+
     @property
     def role(self) -> AgentRole:
         return AgentRole.REVIEWER
+
     def get_status(self) -> str:
         return self._status
+
     def execute_task(
         self,
         task_description: str,
@@ -671,26 +1199,34 @@ Reply with EXACTLY one line:
         finally:
             self._status = "idle"
 
+
 class FallbackAdapter(AgentInterface):
     """Deterministic fallback adapter for testing without LLM/CLI.
     Returns predictable results based on role and task description.
     Used for CI/CD and flow validation.
     """
+
     def __init__(
         self,
         agent_role: AgentRole = AgentRole.CODER,
         agent_id: str | None = None,
     ) -> None:
         self._agent_role = agent_role
-        self._agent_id = agent_id or f"fallback-{agent_role.value}-{uuid.uuid4().hex[:6]}"
+        self._agent_id = (
+            agent_id or f"fallback-{agent_role.value}-{uuid.uuid4().hex[:6]}"
+        )
+
     @property
     def agent_id(self) -> str:
         return self._agent_id
+
     @property
     def role(self) -> AgentRole:
         return self._agent_role
+
     def get_status(self) -> str:
         return "idle"
+
     def execute_task(
         self,
         task_description: str,
@@ -701,7 +1237,9 @@ class FallbackAdapter(AgentInterface):
             return AgentResult(
                 success=True,
                 files_modified={"solution.py": "def solve(): return 42\n"},
-                test_files={"test_solution.py": "from solution import solve\ndef test_solve(): assert solve() == 42\n"},
+                test_files={
+                    "test_solution.py": "from solution import solve\ndef test_solve(): assert solve() == 42\n"
+                },
                 message="Implemented solution (fallback)",
             )
         elif self._agent_role == AgentRole.REVIEWER:
@@ -734,6 +1272,7 @@ class FallbackAdapter(AgentInterface):
                 message="No relevant context found (fallback)",
             )
         return AgentResult(success=True, message="Done (fallback)")
+
 
 def make_agent_id(role: AgentRole, engine: AgentEngine) -> str:
     """Generate a unique agent ID."""
@@ -776,9 +1315,34 @@ def _build_single_agent(
     """Build a single agent adapter based on engine type."""
     if engine == "claude-code":
         return _build_claude_agent(name, role, repo_path)
+    if engine == "opencode":
+        return _build_opencode_agent(name, role, repo_path)
     if engine == "llm":
         return _build_llm_agent(name, role, role_cfg)
     return FallbackAdapter(agent_role=role, agent_id=f"fallback-{name}-1")
+
+
+def _build_opencode_agent(name: str, role: AgentRole, repo_path: str) -> AgentInterface:
+    """Build an OpenCode CLI agent adapter."""
+    if role == AgentRole.PLANNER:
+        return OpenCodePlannerAdapter(agent_id=f"opencode-{name}-1")
+    if role == AgentRole.REVIEWER:
+        return OpenCodeReviewerAdapter(
+            worktree_path=repo_path,
+            agent_id=f"opencode-{name}-1",
+        )
+    if role == AgentRole.CODER:
+        return OpenCodeAdapter(
+            worktree_path=repo_path,
+            agent_role=role,
+            agent_id=f"opencode-{name}-1",
+            timeout_seconds=180,
+        )
+    if role == AgentRole.EXPLORER:
+        return OpenCodeExplorerAdapter(
+            repo_path=repo_path, agent_id=f"opencode-{name}-1"
+        )
+    return FallbackAdapter(agent_role=role, agent_id=f"opencode-{name}-1")
 
 
 def _build_claude_agent(name: str, role: AgentRole, repo_path: str) -> AgentInterface:
@@ -809,6 +1373,7 @@ def _build_llm_agent(name: str, role: AgentRole, role_cfg: Any) -> AgentInterfac
 
     if role == AgentRole.CODER:
         from examples.agent_system.roles.coder import CoderRole
+
         return LLMAgentAdapter(
             CoderRole(llm=llm),
             agent_role=role,
@@ -816,10 +1381,10 @@ def _build_llm_agent(name: str, role: AgentRole, role_cfg: Any) -> AgentInterfac
         )
     if role == AgentRole.REVIEWER:
         from examples.agent_system.roles.reviewer import ReviewerRole
+
         return LLMAgentAdapter(
             ReviewerRole(llm=llm),
             agent_role=role,
             agent_id=f"llm-{name}-1",
         )
     return FallbackAdapter(agent_role=role, agent_id=f"llm-{name}-1")
-
