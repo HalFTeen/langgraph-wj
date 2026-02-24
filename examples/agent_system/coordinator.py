@@ -8,6 +8,7 @@ The Coordinator is NOT an Agent role. It is the main loop that:
 Built on LangGraph StateGraph, uses Core layer modules
 (TaskGraph, GitOps, TDDProtocol, AgentInterface) for all operations.
 """
+
 from __future__ import annotations
 import logging
 from pathlib import Path
@@ -23,18 +24,23 @@ from examples.agent_system.core.agent_interface import (
 from examples.agent_system.core.git_ops import GitOps, GitOpsError, step_branch_name
 from examples.agent_system.core.task_graph import Task, TaskGraph, TaskStatus
 from examples.agent_system.integrations.feishu_notifier import FeishuNotifier
+
 logger = logging.getLogger(__name__)
 
 # --- Coordinator State ---
 
+
 class CoordinatorState(TypedDict):
     """State managed by the Coordinator loop."""
+
     messages: Annotated[list[BaseMessage], add_messages]
     # TaskGraph (serialized)
     task_graph: dict
     current_task_id: str
     # Coordinator phase
-    phase: str  # idle | planning | dispatch | execute | evaluate | merge | done | failed
+    phase: (
+        str  # idle | planning | dispatch | execute | evaluate | merge | done | failed
+    )
     # Agent sessions
     active_agents: list[dict]
     # Current execution
@@ -47,7 +53,9 @@ class CoordinatorState(TypedDict):
     tasks_failed: int
     total_iterations: int
 
+
 # --- Coordinator Nodes ---
+
 
 def plan_node(state: CoordinatorState) -> dict:
     """Call PlannerRole to decompose requirement into TaskGraph.
@@ -55,8 +63,10 @@ def plan_node(state: CoordinatorState) -> dict:
     """
     existing_graph = state.get("task_graph", {})
     if existing_graph.get("tasks"):
-        logger.info("Skipping plan (resume mode, %d existing tasks)",
-                     len(existing_graph["tasks"]))
+        logger.info(
+            "Skipping plan (resume mode, %d existing tasks)",
+            len(existing_graph["tasks"]),
+        )
         return {"phase": "dispatch"}
     agents = _get_agents(state)
     planner = agents.get("planner")
@@ -110,6 +120,7 @@ def plan_node(state: CoordinatorState) -> dict:
         ],
     }
 
+
 def idle_node(state: CoordinatorState) -> dict:
     """Check if there are READY tasks to dispatch."""
     graph = TaskGraph.from_dict(state.get("task_graph", {"tasks": {}}))
@@ -147,6 +158,7 @@ def idle_node(state: CoordinatorState) -> dict:
         return {"phase": "dispatch"}
     return {"phase": "done"}
 
+
 def dispatch_node(state: CoordinatorState) -> dict:
     """Select a READY task, create branch, acquire lock, assign agent."""
     graph = TaskGraph.from_dict(state.get("task_graph", {"tasks": {}}))
@@ -178,7 +190,11 @@ def dispatch_node(state: CoordinatorState) -> dict:
                     git_ops.checkout(default_branch)
                     git_ops.delete_branch_force(branch)
                     git_ops.create_branch(branch, base=default_branch)
-                    logger.info("Recreated branch %s from %s (rebase failed)", branch, default_branch)
+                    logger.info(
+                        "Recreated branch %s from %s (rebase failed)",
+                        branch,
+                        default_branch,
+                    )
             else:
                 git_ops.create_branch(branch, base=default_branch)
                 logger.info("Created branch %s", branch)
@@ -200,6 +216,7 @@ def dispatch_node(state: CoordinatorState) -> dict:
             )
         ],
     }
+
 
 def execute_node(state: CoordinatorState) -> dict:
     """Execute task: agent writes code → files written to disk → git commit."""
@@ -262,9 +279,12 @@ def execute_node(state: CoordinatorState) -> dict:
     if work_dir:
         import subprocess as _sp
         import glob as _glob
+
         # Find test files created by the agent (in root or tests/ dir)
         test_files = []
-        all_modified = list(result.files_modified.keys()) + list(result.test_files.keys())
+        all_modified = list(result.files_modified.keys()) + list(
+            result.test_files.keys()
+        )
         for f in all_modified:
             if "test_" in f or "_test.py" in f:
                 full = Path(work_dir) / f
@@ -303,22 +323,16 @@ def execute_node(state: CoordinatorState) -> dict:
             "messages": [
                 AIMessage(
                     content=f"Agent {coder.agent_id}: tests FAILED for task '{task.title}'.",
-                    additional_kwargs={"role": "coordinator", "action": "execute", "success": False},
+                    additional_kwargs={
+                        "role": "coordinator",
+                        "action": "execute",
+                        "success": False,
+                    },
                 )
             ],
         }
-    # --- Git commit (only if tests pass) ---
+    # Git commit is now handled by user via /commit command (not auto-committed)
     commit_hash = ""
-    if git_ops and (result.files_modified or result.test_files):
-        try:
-            commit_hash = git_ops.commit(
-                message=f"feat({task_id}): {task.title}",
-                agent_id=coder.agent_id,
-                task_id=task_id,
-            )
-            logger.info("Committed: %s", commit_hash)
-        except GitOpsError as exc:
-            logger.warning("Commit failed: %s", exc)
     result_dict = result.to_dict()
     result_dict["commit_hash"] = commit_hash
     return {
@@ -328,7 +342,11 @@ def execute_node(state: CoordinatorState) -> dict:
         "messages": [
             AIMessage(
                 content=f"Agent {coder.agent_id}: {'completed' if result.success else 'failed'} task '{task.title}'."
-                + (f" Commit: {commit_hash[:8]}" if commit_hash else ""),
+                + (
+                    f" Files: {len(result.files_modified)}"
+                    if result.files_modified
+                    else ""
+                ),
                 additional_kwargs={
                     "role": "coordinator",
                     "action": "execute",
@@ -338,6 +356,7 @@ def execute_node(state: CoordinatorState) -> dict:
             )
         ],
     }
+
 
 def evaluate_node(state: CoordinatorState) -> dict:
     """Evaluate execution result. Route to merge, retry, or fail."""
@@ -366,7 +385,9 @@ def evaluate_node(state: CoordinatorState) -> dict:
                 git_ops.release_lock(task.branch, task.assigned_agent)
             notifier = _get_notifier()
             notifier.notify_task_completed(
-                "nal", task_id, task.title,
+                "nal",
+                task_id,
+                task.title,
                 agent_result.get("commit_hash", ""),
             )
             return {
@@ -387,13 +408,18 @@ def evaluate_node(state: CoordinatorState) -> dict:
             }
         else:
             task.retry_count += 1
-            feedback = review_result.review_feedback if review_result else "Review rejected"
+            feedback = (
+                review_result.review_feedback if review_result else "Review rejected"
+            )
             if task.retry_count < task.max_retries:
                 graph.update_status(task_id, TaskStatus.READY)
                 notifier = _get_notifier()
                 notifier.notify_task_retry(
-                    "nal", task_id, task.title,
-                    task.retry_count, task.max_retries,
+                    "nal",
+                    task_id,
+                    task.title,
+                    task.retry_count,
+                    task.max_retries,
                     reason=feedback[:100],
                 )
                 return {
@@ -403,20 +429,28 @@ def evaluate_node(state: CoordinatorState) -> dict:
                     "messages": [
                         AIMessage(
                             content=f"Coordinator: review rejected, retrying ({task.retry_count}/{task.max_retries}).",
-                            additional_kwargs={"role": "coordinator", "action": "retry"},
+                            additional_kwargs={
+                                "role": "coordinator",
+                                "action": "retry",
+                            },
                         )
                     ],
                 }
     # Failure path
     task.retry_count += 1
     # Get failure reason from agent_result or test output
-    failure_reason = agent_result.get("test_output", "") or agent_result.get("message", "Execution failed")
+    failure_reason = agent_result.get("test_output", "") or agent_result.get(
+        "message", "Execution failed"
+    )
     notifier = _get_notifier()
     if task.retry_count < task.max_retries:
         graph.update_status(task_id, TaskStatus.READY)
         notifier.notify_task_retry(
-            "nal", task_id, task.title,
-            task.retry_count, task.max_retries,
+            "nal",
+            task_id,
+            task.title,
+            task.retry_count,
+            task.max_retries,
             reason=failure_reason[:100],
         )
         return {
@@ -452,6 +486,7 @@ def evaluate_node(state: CoordinatorState) -> dict:
         ],
     }
 
+
 def merge_node(state: CoordinatorState) -> dict:
     """Merge completed task branch into main. Then check for more tasks."""
     graph = TaskGraph.from_dict(state.get("task_graph", {"tasks": {}}))
@@ -465,7 +500,12 @@ def merge_node(state: CoordinatorState) -> dict:
             try:
                 result = git_ops.merge(task.branch, default_branch)
                 if result.success:
-                    logger.info("Merged %s → %s: %s", task.branch, default_branch, result.commit_hash)
+                    logger.info(
+                        "Merged %s → %s: %s",
+                        task.branch,
+                        default_branch,
+                        result.commit_hash,
+                    )
                     # Sync with remote before push (skip in daemon mode)
                     if not _is_daemon_mode():
                         try:
@@ -477,7 +517,10 @@ def merge_node(state: CoordinatorState) -> dict:
                         logger.info("Daemon mode: skip push (local only)")
                 else:
                     logger.error(
-                        "Merge conflict %s → %s: %s", task.branch, default_branch, result.conflicts
+                        "Merge conflict %s → %s: %s",
+                        task.branch,
+                        default_branch,
+                        result.conflicts,
                     )
             except GitOpsError as exc:
                 logger.warning("Merge failed: %s", exc)
@@ -505,11 +548,14 @@ def merge_node(state: CoordinatorState) -> dict:
         }
     return {"task_graph": graph.to_dict(), "phase": "idle"}
 
+
 # --- Routing ---
+
 
 def route_after_plan(state: CoordinatorState) -> str:
     phase = state.get("phase", "dispatch")
     return "dispatch" if phase == "dispatch" else "idle"
+
 
 def route_after_idle(state: CoordinatorState) -> str:
     phase = state.get("phase", "done")
@@ -517,9 +563,11 @@ def route_after_idle(state: CoordinatorState) -> str:
         return "dispatch"
     return END
 
+
 def route_after_dispatch(state: CoordinatorState) -> str:
     phase = state.get("phase", "idle")
     return "execute" if phase == "execute" else "idle"
+
 
 def route_after_evaluate(state: CoordinatorState) -> str:
     phase = state.get("phase", "idle")
@@ -529,6 +577,7 @@ def route_after_evaluate(state: CoordinatorState) -> str:
         return "dispatch"
     return "idle"
 
+
 def route_after_merge(state: CoordinatorState) -> str:
     phase = state.get("phase", "done")
     if phase == "dispatch":
@@ -537,7 +586,9 @@ def route_after_merge(state: CoordinatorState) -> str:
         return END
     return "idle"
 
+
 # --- Graph Builder ---
+
 
 def build_coordinator_graph(
     agents: dict[str, AgentInterface] | None = None,
@@ -589,6 +640,7 @@ def build_coordinator_graph(
         checkpointer=checkpointer,
     )
 
+
 def build_coordinator_initial_state(requirement: str) -> CoordinatorState:
     """Build initial state for the Coordinator."""
     return {
@@ -605,6 +657,7 @@ def build_coordinator_initial_state(requirement: str) -> CoordinatorState:
         "total_iterations": 0,
     }
 
+
 # --- Module-level singletons (accessed by nodes) ---
 _agent_registry: dict[str, AgentInterface] = {}
 _git_ops_instance: GitOps | None = None
@@ -612,40 +665,51 @@ _work_dir_path: str | None = None
 _notifier_instance: FeishuNotifier = FeishuNotifier()
 _daemon_mode: bool = False
 
+
 def _set_agent_registry(registry: dict[str, AgentInterface]) -> None:
     global _agent_registry
     _agent_registry = registry
 
+
 def _get_agents(state: CoordinatorState) -> dict[str, AgentInterface]:
     return _agent_registry
+
 
 def _set_git_ops(ops: GitOps | None) -> None:
     global _git_ops_instance
     _git_ops_instance = ops
 
+
 def _get_git_ops() -> GitOps | None:
     return _git_ops_instance
+
 
 def _set_work_dir(path: str | None) -> None:
     global _work_dir_path
     _work_dir_path = path
 
+
 def _get_work_dir() -> str | None:
     return _work_dir_path
+
 
 def _set_notifier(notifier: FeishuNotifier) -> None:
     global _notifier_instance
     _notifier_instance = notifier
 
+
 def _get_notifier() -> FeishuNotifier:
     return _notifier_instance
+
 
 def _set_daemon_mode(enabled: bool) -> None:
     global _daemon_mode
     _daemon_mode = enabled
 
+
 def _is_daemon_mode() -> bool:
     return _daemon_mode
+
 
 def run_planner_standalone(requirement: str, feedback: str = "") -> dict:
     """Run Planner independently, return task_graph dict.
@@ -687,10 +751,10 @@ def run_planner_standalone(requirement: str, feedback: str = "") -> dict:
         }
     }
 
+
 def _task_seq(task_id: str) -> int:
     """Extract numeric sequence from task ID, or hash to int."""
     digits = "".join(c for c in task_id if c.isdigit())
     if digits:
         return int(digits)
     return abs(hash(task_id)) % 10000
-
