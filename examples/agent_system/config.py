@@ -35,19 +35,23 @@ Environment Variables:
         LANGCHAIN_TRACING_V2: Enable LangSmith tracing. Default: false
         LANGCHAIN_PROJECT: LangSmith project name. Default: "agent-system"
 """
+
 from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from typing import Literal
 from examples.agent_system.llm.provider import DEFAULT_MODELS, LLMProvider
 
+
 @dataclass(frozen=True)
 class LLMConfig:
     """Configuration for LLM provider."""
+
     provider: LLMProvider
     model: str
     temperature: float = 0.0
     max_tokens: int | None = None
+
     @classmethod
     def from_env(cls) -> LLMConfig:
         """Create LLMConfig from environment variables."""
@@ -64,13 +68,16 @@ class LLMConfig:
             max_tokens=max_tokens,
         )
 
+
 @dataclass(frozen=True)
 class AgentConfig:
     """Configuration for agent behavior."""
+
     max_iterations: int = 10
     timeout_seconds: int = 300
     retry_on_error: bool = True
     max_retries: int = 3
+
     @classmethod
     def from_env(cls) -> AgentConfig:
         """Create AgentConfig from environment variables."""
@@ -81,12 +88,15 @@ class AgentConfig:
             max_retries=int(os.getenv("AGENT_MAX_RETRIES", "3")),
         )
 
+
 @dataclass(frozen=True)
 class ObservabilityConfig:
     """Configuration for observability and tracing."""
+
     tracing_enabled: bool = False
     project_name: str = "agent-system"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+
     @classmethod
     def from_env(cls) -> ObservabilityConfig:
         """Create ObservabilityConfig from environment variables."""
@@ -103,15 +113,18 @@ class ObservabilityConfig:
             log_level=log_level,  # type: ignore[arg-type]
         )
 
+
 @dataclass(frozen=True)
 class FeishuConfig:
     """Configuration for Feishu integration."""
+
     app_id: str
     app_secret: str
     domain: str = "feishu"
     webhook_path: str = "/feishu/events"
     port: int = 8001
     enabled: bool = False
+
     def get_base_url(self) -> str:
         """Get the API base URL based on domain."""
         if self.domain == "feishu":
@@ -120,6 +133,7 @@ class FeishuConfig:
             return "https://open.larksuite.com"
         else:
             return self.domain.rstrip("/")
+
     @classmethod
     def from_env(cls) -> FeishuConfig | None:
         """Create FeishuConfig from environment variables.
@@ -142,14 +156,17 @@ class FeishuConfig:
             enabled=enabled,
         )
 
+
 @dataclass(frozen=True)
 class DiscordConfig:
     """Configuration for Discord integration."""
+
     bot_token: str
     guild_id: str
     channel_id: str
     webhook_url: str | None = None
     enabled: bool = False
+
     @classmethod
     def from_env(cls) -> DiscordConfig | None:
         """Create DiscordConfig from environment variables.
@@ -170,6 +187,7 @@ class DiscordConfig:
             enabled=enabled,
         )
 
+
 @dataclass(frozen=True)
 class RoleLLMConfig:
     """Per-role engine and LLM configuration.
@@ -179,26 +197,32 @@ class RoleLLMConfig:
         NAL_{ROLE}_LLM_PROVIDER: override LLM provider for this role
         NAL_{ROLE}_LLM_MODEL: override LLM model for this role
     """
+
     engine: str = ""
     provider: str = ""
     model: str = ""
+
 
 @dataclass(frozen=True)
 class EngineConfig:
     """Per-role engine configuration for the NAL pipeline.
     Environment variables:
-        NAL_ENGINE: default engine for all roles. Default: "claude-code"
+        NAL_ENGINE: default engine for all roles. Default: "opencode"
         NAL_PLANNER_ENGINE, NAL_CODER_ENGINE, etc.: per-role overrides
+    Supported engines: "opencode", "claude-code", "llm", "fallback"
     """
-    default_engine: str = "claude-code"
+
+    default_engine: str = "opencode"
     planner: RoleLLMConfig = field(default_factory=RoleLLMConfig)
     coder: RoleLLMConfig = field(default_factory=RoleLLMConfig)
     reviewer: RoleLLMConfig = field(default_factory=RoleLLMConfig)
     explorer: RoleLLMConfig = field(default_factory=RoleLLMConfig)
+
     @classmethod
     def from_env(cls) -> EngineConfig:
         """Create EngineConfig from environment variables."""
-        default = os.getenv("NAL_ENGINE", "claude-code")
+        default = os.getenv("NAL_ENGINE", "opencode")
+
         def _role_config(role: str) -> RoleLLMConfig:
             prefix = f"NAL_{role.upper()}"
             return RoleLLMConfig(
@@ -206,6 +230,7 @@ class EngineConfig:
                 provider=os.getenv(f"{prefix}_LLM_PROVIDER", ""),
                 model=os.getenv(f"{prefix}_LLM_MODEL", ""),
             )
+
         return cls(
             default_engine=default,
             planner=_role_config("planner"),
@@ -214,11 +239,14 @@ class EngineConfig:
             explorer=_role_config("explorer"),
         )
 
+
 @dataclass(frozen=True)
 class GatewayConfig:
     """Configuration for gateway services."""
+
     feishu: FeishuConfig | None = None
     discord: DiscordConfig | None = None
+
     @classmethod
     def from_env(cls) -> "GatewayConfig":
         """Create GatewayConfig from environment variables."""
@@ -227,13 +255,16 @@ class GatewayConfig:
             discord=DiscordConfig.from_env(),
         )
 
+
 @dataclass(frozen=True)
 class Config:
     """Root configuration for the agent system."""
+
     llm: LLMConfig
     agent: AgentConfig
     observability: ObservabilityConfig
     gateway: GatewayConfig
+
     @classmethod
     def from_env(cls) -> Config:
         """Create full Config from environment variables."""
@@ -244,8 +275,10 @@ class Config:
             gateway=GatewayConfig.from_env(),
         )
 
+
 # Singleton pattern for global config access
 _config: Config | None = None
+
 
 def get_config(*, reload: bool = False) -> Config:
     """Get the global configuration.
@@ -264,10 +297,10 @@ def get_config(*, reload: bool = False) -> Config:
         _config = Config.from_env()
     return _config
 
+
 def reset_config() -> None:
     """Reset the global configuration.
     Useful for testing to ensure fresh config on each test.
     """
     global _config
     _config = None
-
